@@ -102,6 +102,8 @@ services:
 
   traefik:
     image: ${TRAEFIK_IMAGE_TAG}
+    environment:
+      - DOCKER_API_VERSION=1.47
     command:
       # Set the log level (DEBUG, INFO, WARN, ERROR)
       - "--log.level=${TRAEFIK_LOG_LEVEL}"
@@ -152,7 +154,7 @@ services:
       - "443:443"
       - "11434:11434"
     healthcheck:
-      test: ["CMD", "wget", "http://localhost:8082/ping","--spider"]
+      test: ["CMD", "wget", "http://localhost:8082/ping", "--spider"]
       interval: 10s
       timeout: 5s
       retries: 3
