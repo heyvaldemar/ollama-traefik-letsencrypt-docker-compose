@@ -1,103 +1,175 @@
-# Ollama with Let's Encrypt Using Docker Compose
+# Ollama + Open WebUI + Traefik + Let's Encrypt — Docker Compose
 
-[![Deployment Verification](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions/workflows/00-deployment-verification.yml/badge.svg)](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions)
+[![Deployment Verification](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The badge displayed on my repository indicates the status of the deployment verification workflow as executed on the latest commit to the main branch.
+## Contents
 
-**Passing**: This means the most recent commit has successfully passed all deployment checks, confirming that the Docker Compose setup functions correctly as designed.
+- [Why this stack?](#why-this-stack)
+- [Prerequisites](#prerequisites)
+- [Getting started](#getting-started)
+- [Features](#features)
+  - [Typical use cases](#typical-use-cases)
+- [GPU support](#gpu-support)
+- [Supply chain trust](#supply-chain-trust)
+- [Production checklist](#production-checklist)
+- [Testing](#testing)
+- [Security Notes](#security-notes)
+- [About the maintainer](#about-the-maintainer)
 
-📙 The complete installation guide is available on my [website](https://www.heyvaldemar.com/install-ollama-using-docker-compose/).
+This repository deploys **Ollama** (local LLM runtime) with **Open WebUI** (chat interface) behind **Traefik** with automatic **Let's Encrypt TLS**. One `docker compose up` away from a self-hosted ChatGPT-style service at `https://your-domain`, with the raw Ollama API exposed on port 11434 for programmatic use.
 
-❗ Change variables in the `.env` to meet your requirements.
+📙 Full narrative installation guide on the blog: [heyvaldemar.com/install-ollama-using-docker-compose/](https://www.heyvaldemar.com/install-ollama-using-docker-compose/).
 
-💡 Note that the `.env` file should be in the same directory as `ollama-traefik-letsencrypt-docker-compose.yml`.
+## Why this stack?
 
-Create networks for your services before deploying the configuration using the commands:
+| Need | This stack | Manual install | Kubernetes | Other compose examples |
+|------|-----------|----------------|------------|------------------------|
+| Ready to deploy in <10 min | ✅ | ❌ hours of setup | ✅ if K8s is already running | Often |
+| TLS via Let's Encrypt, auto-renewed | ✅ Traefik ACME built-in | Manual certbot | Via cert-manager | Rare |
+| Web chat UI + raw API on one host | ✅ | Separate installs | Varies | Varies |
+| Models auto-installed on first start | ✅ configurable list | Manual `ollama pull` | Init containers | Rare |
+| Upstream images pinned by `sha256` digest | ✅ | N/A | Depends | Rare |
+| Weekly pin-freshness check in CI | ✅ | N/A | Depends | Rare |
+| CI-verified deployment on every push | ✅ | N/A | Varies | Rare |
+| Credentials via env (never committed) | ✅ | N/A | K8s Secrets | Often committed plaintext |
 
-`docker network create traefik-network`
+Three moving parts (Traefik + Ollama + Open WebUI). No Kubernetes prerequisites, no manual certificate management.
 
-`docker network create ollama-network`
+## Prerequisites
 
-Deploy Ollama using Docker Compose:
+Before you start, you need:
 
-`docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d`
+- **A Linux server** with a public IP. Tested on Ubuntu 22.04 LTS+ and Debian 12+. Local Mac/Windows works for dev; production is Linux.
+- **Docker Engine 24+ and Docker Compose 2.20+.** Quick check: `docker version` and `docker compose version`.
+- **A domain you control,** with two `A` records pointing at your server's public IP — one for Open WebUI (e.g. `ollama.example.com`), one for the Traefik dashboard (e.g. `traefik.ollama.example.com`). DNS must propagate before deploy or the Let's Encrypt TLS-ALPN challenge will fail.
+- **Ports 80, 443, and 11434 open** on the server's firewall. 11434 serves the raw Ollama API through Traefik's TCP entrypoint — close it if you only need the web UI.
+- **Disk for models.** The default `OLLAMA_INSTALL_MODELS=llama3,codegemma,mistral` downloads roughly 12 GB on first start. Set the variable to an empty value in `.env` to skip automatic model installation, or list only the models you need.
+- **RAM/CPU sized to your models.** 8 GB RAM runs 7-8B quantized models on CPU; a GPU changes everything (see [GPU support](#gpu-support)).
 
-## Author
+## Getting started
 
-hey everyone,
+```bash
+# 1. Clone
+git clone https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose
+cd ollama-traefik-letsencrypt-docker-compose
 
-💾 I’ve been in the IT game for over 20 years, cutting my teeth with some big names like [IBM](https://www.linkedin.com/in/heyvaldemar/), [Thales](https://www.linkedin.com/in/heyvaldemar/), and [Amazon](https://www.linkedin.com/in/heyvaldemar/). These days, I wear the hat of a DevOps Consultant and Team Lead, but what really gets me going is Docker and container technology - I’m kind of obsessed!
+# 2. Create the two Docker networks the stack expects
+docker network create traefik-network
+docker network create ollama-network
 
-💛 I have my own IT [blog](https://www.heyvaldemar.com/), where I’ve built a [community](https://discord.gg/AJQGCCBcqf) of DevOps enthusiasts who share my love for all things Docker, containers, and IT technologies in general. And to make sure everyone can jump on this awesome DevOps train, I write super detailed guides (seriously, they’re foolproof!) that help even newbies deploy and manage complex IT solutions.
+# 3. Copy the environment template and fill in required values
+cp .env.example .env
+$EDITOR .env
+# ^ Required: OLLAMA_HOSTNAME, TRAEFIK_HOSTNAME, TRAEFIK_ACME_EMAIL,
+#   TRAEFIK_BASIC_AUTH. See .env.example for generation commands.
 
-🚀 My dream is to empower every single person in the DevOps community to squeeze every last drop of potential out of Docker and container tech.
+# 4. Deploy
+docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d
+```
 
-🐳 As a [Docker Captain](https://www.docker.com/captains/vladimir-mikhalev/), I’m stoked to share my knowledge, experiences, and a good dose of passion for the tech. My aim is to encourage learning, innovation, and growth, and to inspire the next generation of IT whizz-kids to push Docker and container tech to its limits.
+Within a minute or two `https://${OLLAMA_HOSTNAME}` serves Open WebUI with a fresh Let's Encrypt certificate; the first account you register becomes the admin. Model downloads continue in the background if `OLLAMA_INSTALL_MODELS` is set.
 
-Let’s do this together!
+### What success looks like
 
-## My 2D Portfolio
+```bash
+# All three services should report as healthy / up:
+docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama ps
 
-🕹️ Click into [sre.gg](https://www.sre.gg/) — my virtual space is a 2D pixel-art portfolio inviting you to interact with elements that encapsulate the milestones of my DevOps career.
+# The Ollama API answers through the Traefik TCP entrypoint:
+curl -fsS http://localhost:11434/api/version
+# Expected: {"version":"0.33.2"}
 
-## My Courses
+# Model installation progress:
+docker compose -p ollama logs ollama | grep -i pull
 
-🎓 Dive into my [comprehensive IT courses](https://www.heyvaldemar.com/courses/) designed for enthusiasts and professionals alike. Whether you're looking to master Docker, conquer Kubernetes, or advance your DevOps skills, my courses provide a structured pathway to enhancing your technical prowess.
+# Traefik issued a certificate:
+docker compose -p ollama logs traefik | grep -i "adding certificate"
+```
 
-🔑 [Each course](https://www.udemy.com/user/heyvaldemar/) is built from the ground up with real-world scenarios in mind, ensuring that you gain practical knowledge and hands-on experience. From beginners to seasoned professionals, there's something here for everyone to elevate their IT skills.
+### Common first-deploy issues
 
-## My Services
+- **Cert issuance fails.** DNS hasn't propagated or port 80 isn't reachable from the internet. Confirm with `dig +short ${OLLAMA_HOSTNAME}` and `curl -I http://${OLLAMA_HOSTNAME}` from outside the server.
+- **`docker compose up` fails with `set in .env`.** A required variable is empty; the error names it. Generate values per the comments in `.env.example`.
+- **`network ollama-network not found`.** Step 2 was skipped.
+- **First responses are slow.** The model loads into RAM on first inference after each idle unload — this is Ollama behavior, not a stack problem.
 
-💼 Take a look at my [service catalog](https://www.heyvaldemar.com/services/) and find out how we can make your technological life better. Whether it's increasing the efficiency of your IT infrastructure, advancing your career, or expanding your technological horizons — I'm here to help you achieve your goals. From DevOps transformations to building gaming computers — let's make your technology unparalleled!
+### Apply `.env` or compose-file changes
 
-## Patreon Exclusives
+```bash
+docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d --force-recreate
+```
 
-🏆 Join my [Patreon](https://www.patreon.com/heyvaldemar) and dive deep into the world of Docker and DevOps with exclusive content tailored for IT enthusiasts and professionals. As your experienced guide, I offer a range of membership tiers designed to suit everyone from newbies to IT experts.
+## Features
 
-## My Recommendations
+- **Ollama** latest stable (0.33.2) with automatic model installation from a configurable list.
+- **Open WebUI** (0.11 line) — multi-user chat interface with per-user history; first registered account becomes admin.
+- **Traefik v3** reverse proxy with automatic HTTP→HTTPS redirect and Let's Encrypt TLS-ALPN certificate issuance.
+- **Raw Ollama API** published through a dedicated Traefik TCP entrypoint on port 11434 for OpenAI-compatible programmatic access.
+- **Basic-auth protected Traefik dashboard** on a separate hostname.
+- **Healthchecks** on every service with start-order dependencies.
+- **Credentials required at deploy time** — compose fails fast if `.env` is incomplete.
 
-📕 Check out my collection of [essential DevOps books](https://kit.co/heyvaldemar/essential-devops-books)\
-🖥️ Check out my [studio streaming and recording kit](https://kit.co/heyvaldemar/my-studio-streaming-and-recording-kit)\
-📡 Check out my [streaming starter kit](https://kit.co/heyvaldemar/streaming-starter-kit)
+### Typical use cases
 
-## Follow Me
+- **Private ChatGPT alternative** — chat with local models; prompts and history never leave your server.
+- **LLM API backend for development** — point OpenAI-compatible SDKs at `http://your-server:11434` without cloud API costs.
+- **Team inference server** — one GPU box, many users through Open WebUI accounts.
+- **Model evaluation sandbox** — pull and compare models with `docker exec -it <ollama-container> ollama pull <model>`.
 
-🎬 [YouTube](https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1)\
-🐦 [X / Twitter](https://twitter.com/heyvaldemar)\
-🎨 [Instagram](https://www.instagram.com/heyvaldemar/)\
-🐘 [Mastodon](https://mastodon.social/@heyvaldemar)\
-🧵 [Threads](https://www.threads.net/@heyvaldemar)\
-🎸 [Facebook](https://www.facebook.com/heyvaldemarFB/)\
-🧊 [Bluesky](https://bsky.app/profile/heyvaldemar.bsky.social)\
-🎥 [TikTok](https://www.tiktok.com/@heyvaldemar)\
-💻 [LinkedIn](https://www.linkedin.com/in/heyvaldemar/)\
-📣 [daily.dev Squad](https://app.daily.dev/squads/devopscompass)\
-🧩 [LeetCode](https://leetcode.com/u/heyvaldemar/)\
-🐈 [GitHub](https://github.com/heyvaldemar)
+## GPU support
 
-## Community of IT Experts
+The compose file ships with a commented NVIDIA GPU block on the `ollama` service. To enable it: install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host, uncomment the `deploy.resources.reservations.devices` block, and set `OLLAMA_GPU_COUNT` in `.env` (default `all`). Recreate the stack afterwards. Without a GPU the stack runs fully on CPU — slower, but functional for small quantized models.
 
-👾 [Discord](https://discord.gg/AJQGCCBcqf)
+## Supply chain trust
 
-## Refill My Coffee Supplies
+This repository is a **deployment template**, not a custom Docker image. It orchestrates three upstream images:
 
-💖 [PayPal](https://www.paypal.com/paypalme/heyvaldemarCOM)\
-🏆 [Patreon](https://www.patreon.com/heyvaldemar)\
-💎 [GitHub](https://github.com/sponsors/heyvaldemar)\
-🥤 [BuyMeaCoffee](https://www.buymeacoffee.com/heyvaldemar)\
-🍪 [Ko-fi](https://ko-fi.com/heyvaldemar)
+- [`traefik`](https://hub.docker.com/_/traefik) — reverse proxy, Docker Hub official image
+- [`ollama/ollama`](https://hub.docker.com/r/ollama/ollama) — Ollama upstream
+- [`ghcr.io/open-webui/open-webui`](https://github.com/open-webui/open-webui/pkgs/container/open-webui) — Open WebUI upstream
 
-🌟 **Bitcoin (BTC):** bc1q2fq0k2lvdythdrj4ep20metjwnjuf7wccpckxc\
-🔹 **Ethereum (ETH):** 0x76C936F9366Fad39769CA5285b0Af1d975adacB8\
-🪙 **Binance Coin (BNB):** bnb1xnn6gg63lr2dgufngfr0lkq39kz8qltjt2v2g6\
-💠 **Litecoin (LTC):** LMGrhx8Jsx73h1pWY9FE8GB46nBytjvz8g
+All three are pinned to `tag@sha256:<digest>` as interpolation defaults in the compose file's `x-images` block. Compose pulls by digest, not by tag — and `git pull` alone delivers the version combination this repository has tested, because the pins live in the tracked compose file rather than in your `.env`. Setting `TRAEFIK_IMAGE_TAG`, `OLLAMA_IMAGE_TAG`, or `WEBUI_IMAGE_TAG` in `.env` overrides the default when you deliberately want a different version.
+
+The weekly `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Ollama, Open WebUI, and Traefik versions against the latest upstream releases — any drift fails the run and notifies the maintainer. CI's **Deployment Verification** workflow runs on every push, pull request, and every Monday at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot's `github-actions` ecosystem keeps those fresh.
+
+## Production checklist
+
+Before exposing this to real users, check every box:
+
+- [ ] **Register the admin account first.** Open WebUI grants admin to the first registered user. Do it before sharing the URL, then disable open sign-ups in Open WebUI's admin settings if the instance is not meant to be public.
+- [ ] **Decide about port 11434.** The raw Ollama API has no authentication of its own. If you only need the web UI, close 11434 on your firewall; if you need the API, restrict source IPs.
+- [ ] **Strong Traefik dashboard hash.** Regenerate `TRAEFIK_BASIC_AUTH` per deployment (command in `.env.example`).
+- [ ] **Size your models to your RAM/VRAM.** A model that does not fit forces heavy swapping or OOM kills.
+- [ ] **Verify Let's Encrypt cert issuance** in the Traefik logs on first start.
+- [ ] **Plan model storage.** Models live in the `ollama-data` volume; back it up or accept re-downloading models after host loss.
+
+## Testing
+
+The [Deployment Verification](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml?query=branch%3Amain) workflow runs on every push, pull request, and every Monday at 06:00 UTC:
+
+1. **Lint** — shellcheck on `entrypoint.sh`, actionlint on the workflow.
+2. **Trivy scans** of all three pinned images (CRITICAL/HIGH, SARIF to the Security tab).
+3. **Pin freshness** (weekly/manual) — digest drift against registries plus release-lag checks for Ollama, Open WebUI, and Traefik.
+4. **Deploy-and-test** — boots the full stack with ephemeral credentials (model download skipped in CI), then requires the Ollama API (`/api/version`) to answer through the Traefik TCP entrypoint and the Open WebUI front page to answer 200 through HTTPS before the run may pass.
+
+A green run is the authoritative proof that the shipped configuration produces a working instance — not just started containers.
+
+## Security Notes
+
+- Credentials are read from `.env` at deploy time; `.env` is gitignored and the compose file fails fast on missing required variables.
+- The raw Ollama API on 11434 is unauthenticated by design (upstream behavior) — treat network access to that port as full access to your models.
+- Upstream image digests are pinned; the weekly freshness job flags drift loudly.
+- CI runs on every push and every Monday to catch upstream drift.
+
+---
+
+## About the maintainer
 
 <div align="center">
 
-### Show some 💜 by starring some of the [repositories](https://github.com/heyValdemar?tab=repositories)!
+**Maintained by [Vladimir Mikhalev](https://github.com/heyvaldemar)** — Docker Captain · IBM Champion · AWS Community Builder
 
-![octocat](https://user-images.githubusercontent.com/10498744/210113490-e2fad07f-4488-4da8-a656-b9abbdd8cb26.gif)
+[YouTube](https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1) · [Blog](https://heyvaldemar.com) · [LinkedIn](https://www.linkedin.com/in/heyvaldemar/)
 
 </div>
-
-![footer](https://user-images.githubusercontent.com/10498744/210157572-1fca0242-8af2-46a6-bfa3-666ffd40ebde.svg)

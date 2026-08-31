@@ -16,7 +16,7 @@ echo "Ollama started."
 IFS=',' read -ra model_array <<< "$MODELS"
 for model in "${model_array[@]}"; do
     echo "Installing/Updating model $model..."
-    ollama pull $model  # This command fetches the latest version of the model
+    ollama pull "$model"  # This command fetches the latest version of the model
 done
 echo "All models installed/updated."
 
