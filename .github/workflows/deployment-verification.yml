@@ -266,7 +266,9 @@ jobs:
         # definition, so this never races an archive still being written.
         run: |
           # shellcheck disable=SC2016
-          timeout 6m bash -c 'until docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs backups 2>/dev/null | grep -qE "Data backup (OK|FAILED)"; do echo "Waiting for the first backup cycle..."; sleep 10; done'
+          # The application creates its database on first start, later than the
+          # first backup cycle; wait for the cycle that actually copied it.
+          timeout 6m bash -c 'until docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs backups 2>/dev/null | grep -qE "Database backup (OK|FAILED)"; do echo "Waiting for a backup cycle that saw the database..."; sleep 10; done'
           db=$(docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs backups 2>/dev/null | grep "Database backup OK" | tail -1 | sed -E 's/.*Database backup OK: ([^ ]+) .*/\1/')
           [ -n "$db" ] || { echo "::error::no 'Database backup OK' line"; exit 1; }
           docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" exec -T backups sh -c "gunzip -c '$db' > /tmp/check.db && python3 -c \"import sqlite3; c=sqlite3.connect('/tmp/check.db'); r=c.execute('pragma integrity_check').fetchone()[0]; print('integrity:', r); raise SystemExit(0 if r=='ok' else 1)\"" && echo "Database backup valid: $db"
