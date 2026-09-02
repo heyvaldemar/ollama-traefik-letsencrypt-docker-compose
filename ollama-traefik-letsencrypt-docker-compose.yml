@@ -214,7 +214,9 @@ services:
           for db in webui.db; do
             DB_FILE="$$OPEN_WEBUI_BACKUPS_PATH/$$OPEN_WEBUI_BACKUP_NAME-$${db%%.*}-$$STAMP.sqlite3"
             echo "[$$(date -Iseconds)] Starting database backup of $$db to $$DB_FILE.gz"
-            if [ -f "/data/$$db" ] && python3 -c "import sqlite3,sys; s=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close(); s.close()" "/data/$$db" "$$DB_FILE" && gzip -f "$$DB_FILE"; then
+            if [ ! -f "/data/$$db" ]; then
+              echo "[$$(date -Iseconds)] Database $$db not present yet (first start?) - skipped this cycle"
+            elif python3 -c "import sqlite3,sys; s=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close(); s.close()" "/data/$$db" "$$DB_FILE" && gzip -f "$$DB_FILE"; then
               echo "[$$(date -Iseconds)] Database backup OK: $$DB_FILE.gz ($$(stat -c %s "$$DB_FILE.gz") bytes)"
             else
               echo "[$$(date -Iseconds)] Database backup FAILED - $$db could not be copied consistently" >&2
