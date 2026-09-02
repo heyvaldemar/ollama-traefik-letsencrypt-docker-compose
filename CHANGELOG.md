@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _(no unreleased changes yet)_
 
+## [1.2.0] - 2026-09-02
+
+### Added
+
+- **A `backups` service** for Open WebUI's users, chats and settings (models in ollama-data are re-downloadable and are not backed up): on a loop it takes a consistent copy of each SQLite database (`webui.db`) through Python's `sqlite3` backup API - no application stop - and a `tar.gz` of the rest of the data directory (live database files excluded), logs `OK` or `FAILED` per artefact (a failed archive is kept as `.failed`), and prunes only its own files. Schedule knobs (`OPEN_WEBUI_BACKUP_INIT_SLEEP`, `OPEN_WEBUI_BACKUP_INTERVAL`, `OPEN_WEBUI_BACKUP_PRUNE_DAYS`, path and names) have defaults listed in `.env.example`.
+- **`open-webui-restore-data.sh`** — interactive restore of a backup set: stops open-webui, unpacks the data archive, restores each database copy, starts open-webui.
+- CI waits for the first backup cycle and proves the archives are readable and the database copy passes `PRAGMA integrity_check`.
+
 ## [1.1.0] - 2026-09-02
 
 ### Added
@@ -56,6 +64,7 @@ v1.2.0.
 
 - Quoting in `entrypoint.sh` model-pull loop.
 
-[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/releases/tag/v1.0.0

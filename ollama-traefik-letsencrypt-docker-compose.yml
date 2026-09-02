@@ -20,6 +20,7 @@ volumes:
   webui-data:
   ollama-data:
   traefik-certificates:
+  open-webui-backups:
 
 services:
   webui:
@@ -185,4 +186,63 @@ services:
       - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
       # Pass the original Host header to the backend
       - "traefik.http.services.dashboard.loadbalancer.passhostheader=true"
+    restart: unless-stopped
+
+  backups:
+    image: python:3.13-alpine@sha256:7415fbc3c9e4979cc717d92377ab2bc7b2b4a2af1ac03cc52b5f3f88efedaf3a
+    # Resource limits as .env-overridable defaults (e.g. OPEN_WEBUI_BACKUPS_MEMORY_LIMIT=2g);
+    # the override survives every git pull.
+    deploy:
+      resources:
+        limits:
+          memory: ${OPEN_WEBUI_BACKUPS_MEMORY_LIMIT:-256m}
+          cpus: "${OPEN_WEBUI_BACKUPS_CPU_LIMIT:-0.5}"
+        reservations:
+          memory: ${OPEN_WEBUI_BACKUPS_MEMORY_RESERVATION:-32m}
+          cpus: "${OPEN_WEBUI_BACKUPS_CPU_RESERVATION:-0.1}"
+    # Every cycle: a consistent online copy of each SQLite database through
+    # Python's backup API (no application stop), then a tar.gz of the rest of
+    # the data directory (live database files excluded - the copies above are
+    # the consistent ones). Logs OK/FAILED per artefact; a failed archive is
+    # kept as .failed for diagnosis; retention 0 disables pruning.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sleep "$$OPEN_WEBUI_BACKUP_INIT_SLEEP"
+        while true; do
+          STAMP="$$(date +%Y-%m-%d_%H-%M)"
+          for db in webui.db; do
+            DB_FILE="$$OPEN_WEBUI_BACKUPS_PATH/$$OPEN_WEBUI_BACKUP_NAME-$${db%%.*}-$$STAMP.sqlite3"
+            echo "[$$(date -Iseconds)] Starting database backup of $$db to $$DB_FILE.gz"
+            if [ -f "/data/$$db" ] && python3 -c "import sqlite3,sys; s=sqlite3.connect('file:'+sys.argv[1]+'?mode=ro',uri=True); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close(); s.close()" "/data/$$db" "$$DB_FILE" && gzip -f "$$DB_FILE"; then
+              echo "[$$(date -Iseconds)] Database backup OK: $$DB_FILE.gz ($$(stat -c %s "$$DB_FILE.gz") bytes)"
+            else
+              echo "[$$(date -Iseconds)] Database backup FAILED - $$db could not be copied consistently" >&2
+              rm -f "$$DB_FILE" "$$DB_FILE.gz"
+            fi
+          done
+          DATA_FILE="$$OPEN_WEBUI_BACKUPS_PATH/$$OPEN_WEBUI_DATA_BACKUP_NAME-$$STAMP.tar.gz"
+          echo "[$$(date -Iseconds)] Starting data backup to $$DATA_FILE"
+          tar -C /data --exclude='./webui.db' --exclude='./webui.db-wal' --exclude='./webui.db-shm' --exclude='./cache' -zcpf "$$DATA_FILE" .; RC=$$?
+          if [ "$$RC" -eq 0 ] || [ "$$RC" -eq 1 ]; then
+            echo "[$$(date -Iseconds)] Data backup OK: $$DATA_FILE ($$(stat -c %s "$$DATA_FILE") bytes)"
+          else
+            echo "[$$(date -Iseconds)] Data backup FAILED - partial file kept as $$DATA_FILE.failed for diagnosis" >&2
+            mv "$$DATA_FILE" "$$DATA_FILE.failed" 2>/dev/null || true
+          fi
+          if [ "$${OPEN_WEBUI_BACKUP_PRUNE_DAYS:-0}" -ge 1 ]; then
+            find "$$OPEN_WEBUI_BACKUPS_PATH" -type f \( -name "$$OPEN_WEBUI_BACKUP_NAME-*" -o -name "$$OPEN_WEBUI_DATA_BACKUP_NAME-*" \) -mtime "+$$OPEN_WEBUI_BACKUP_PRUNE_DAYS" -delete
+          fi
+          sleep "$$OPEN_WEBUI_BACKUP_INTERVAL"
+        done
+    volumes:
+      - webui-data:/data
+      - open-webui-backups:${OPEN_WEBUI_BACKUPS_PATH:-/srv/open-webui/backups}
+    environment:
+      OPEN_WEBUI_BACKUP_INIT_SLEEP: ${OPEN_WEBUI_BACKUP_INIT_SLEEP:-30m}
+      OPEN_WEBUI_BACKUP_INTERVAL: ${OPEN_WEBUI_BACKUP_INTERVAL:-24h}
+      OPEN_WEBUI_BACKUP_PRUNE_DAYS: ${OPEN_WEBUI_BACKUP_PRUNE_DAYS:-7}
+      OPEN_WEBUI_BACKUPS_PATH: ${OPEN_WEBUI_BACKUPS_PATH:-/srv/open-webui/backups}
+      OPEN_WEBUI_BACKUP_NAME: ${OPEN_WEBUI_BACKUP_NAME:-open-webui-database-backup}
+      OPEN_WEBUI_DATA_BACKUP_NAME: ${OPEN_WEBUI_DATA_BACKUP_NAME:-open-webui-data-backup}
     restart: unless-stopped

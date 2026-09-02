@@ -164,6 +164,25 @@ The script refuses to cross a MAJOR template version on its own — majors are b
 
 This is deliberately a host-side script and not a container in the stack: an in-stack updater needs the Docker socket (root on the host) and turns "someone pushed to a repo" into "someone deployed to your machine" with no operator in the loop. A cron job under your own user updates only to tagged, CI-verified states and leaves the trust boundary where it was.
 
+## Backups
+
+The `backups` container runs on a loop: an initial delay (`OPEN_WEBUI_BACKUP_INIT_SLEEP`, default 30m), then every `OPEN_WEBUI_BACKUP_INTERVAL` (default 24h) it takes a consistent copy of each SQLite database (`webui.db`) through Python's `sqlite3` backup API - no application stop - and a `tar.gz` of the rest of the data directory (live database files excluded), into the `open-webui-backups` volume; files older than `OPEN_WEBUI_BACKUP_PRUNE_DAYS` (default 7) are pruned. Each artefact logs `... backup OK: <file> (<bytes> bytes)` or `FAILED` (kept as `<file>.failed`) — grep the log for `FAILED` from your monitoring.
+
+**Verify backups are running:**
+
+```bash
+docker compose -p open-webui logs backups | tail -5
+docker compose -p open-webui exec backups ls -la /srv/open-webui/backups/
+```
+
+**Restore** a backup set with the interactive script (`chmod +x open-webui-restore-data.sh` once): it stops open-webui, unpacks the data archive over the data directory, restores each database from its consistent copy, and starts open-webui again.
+
+```bash
+./open-webui-restore-data.sh
+```
+
+**Off-host replication.** Backups live in a named volume on the same host — bind-mount `OPEN_WEBUI_BACKUPS_PATH` to a directory covered by your off-host backup solution (restic, rclone, Borg, S3 sync).
+
 ## Testing
 
 The [Deployment Verification](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml?query=branch%3Amain) workflow runs on every push, pull request, and every Monday at 06:00 UTC:

@@ -226,6 +226,8 @@ jobs:
           OLLAMA_HOSTNAME=${APP_HOSTNAME}
           # Skip multi-GB model downloads in CI; the template default installs models.
           OLLAMA_INSTALL_MODELS=
+          OPEN_WEBUI_BACKUP_INIT_SLEEP=15s
+          OPEN_WEBUI_BACKUP_INTERVAL=60s
           EOF
           echo "Generated ephemeral .env for CI run"
 
@@ -258,6 +260,20 @@ jobs:
             sleep 10
           done'
           curl -fskL "https://$APP_HOSTNAME/" -o /dev/null -w "Open WebUI front page: %{http_code}\n"
+
+      - name: Verify a backup is produced and valid
+        # Log-driven: the file named in a 'backup OK' line is complete by
+        # definition, so this never races an archive still being written.
+        run: |
+          # shellcheck disable=SC2016
+          timeout 6m bash -c 'until docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs backups 2>/dev/null | grep -qE "Data backup (OK|FAILED)"; do echo "Waiting for the first backup cycle..."; sleep 10; done'
+          db=$(docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs backups 2>/dev/null | grep "Database backup OK" | tail -1 | sed -E 's/.*Database backup OK: ([^ ]+) .*/\1/')
+          [ -n "$db" ] || { echo "::error::no 'Database backup OK' line"; exit 1; }
+          docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" exec -T backups sh -c "gunzip -c '$db' > /tmp/check.db && python3 -c \"import sqlite3; c=sqlite3.connect('/tmp/check.db'); r=c.execute('pragma integrity_check').fetchone()[0]; print('integrity:', r); raise SystemExit(0 if r=='ok' else 1)\"" && echo "Database backup valid: $db"
+          data=$(docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs backups 2>/dev/null | grep "Data backup OK" | tail -1 | sed -E 's/.*Data backup OK: ([^ ]+) .*/\1/')
+          [ -n "$data" ] || { echo "::error::no 'Data backup OK' line - the data archive failed"; exit 1; }
+          docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" exec -T backups sh -c "tar -tzf '$data' > /dev/null" && echo "Data backup valid: $data"
+          docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs backups 2>/dev/null | grep -i "backup FAILED" && { echo "::error::the backups log reports a failure"; exit 1; } || true
 
       - name: Wait for the Traefik dashboard to be ready
         run: |
