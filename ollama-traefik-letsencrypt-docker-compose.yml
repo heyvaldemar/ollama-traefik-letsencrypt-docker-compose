@@ -25,6 +25,9 @@ volumes:
 services:
   webui:
     image: *webui-image
+    # Hardening: no privilege escalation via setuid binaries
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - webui-data:/app/backend/data
     environment:
