@@ -10,8 +10,8 @@
 # 5. **Start Service**: open-webui is started again.
 # Make it executable once: `chmod +x open-webui-restore-data.sh`
 
-APP_CONTAINER="$(docker compose -p open-webui ps -q webui)"
-BACKUPS_CONTAINER="$(docker compose -p open-webui ps -q backups)"
+APP_CONTAINER="$(docker compose -p ollama ps -q webui)"
+BACKUPS_CONTAINER="$(docker compose -p ollama ps -q backups)"
 BACKUP_PATH="/srv/open-webui/backups"
 DB_NAME="open-webui-database-backup"
 DATA_NAME="open-webui-data-backup"
