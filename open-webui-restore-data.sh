@@ -10,7 +10,7 @@
 # 5. **Start Service**: open-webui is started again.
 # Make it executable once: `chmod +x open-webui-restore-data.sh`
 
-APP_CONTAINER="$(docker compose -p open-webui ps -q open-webui)"
+APP_CONTAINER="$(docker compose -p open-webui ps -q webui)"
 BACKUPS_CONTAINER="$(docker compose -p open-webui ps -q backups)"
 BACKUP_PATH="/srv/open-webui/backups"
 DB_NAME="open-webui-database-backup"
@@ -32,7 +32,7 @@ echo "--> Stopping open-webui..."
 docker stop "$APP_CONTAINER" > /dev/null
 
 echo "--> Restoring the data directory from $DATA_NAME-$STAMP.tar.gz..."
-docker exec "$BACKUPS_CONTAINER" sh -c "tar -C /data -xzpf $BACKUP_PATH/$DATA_NAME-$STAMP.tar.gz" || { echo "--> data archive restore FAILED" >&2; docker start "$APP_CONTAINER" > /dev/null; exit 1; }
+docker exec "$BACKUPS_CONTAINER" sh -c "tar -C / -xzpf $BACKUP_PATH/$DATA_NAME-$STAMP.tar.gz" || { echo "--> data archive restore FAILED" >&2; docker start "$APP_CONTAINER" > /dev/null; exit 1; }
 # shellcheck disable=SC2043
 for db in webui.db; do
   base="${db%%.*}"
