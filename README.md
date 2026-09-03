@@ -1,4 +1,4 @@
-# Ollama + Open WebUI + Traefik + Let's Encrypt — Docker Compose
+# Ollama + Open WebUI + Traefik + Let's Encrypt on Docker Compose
 
 [![Deployment Verification](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -42,8 +42,8 @@ Before you start, you need:
 
 - **A Linux server** with a public IP. Tested on Ubuntu 22.04 LTS+ and Debian 12+. Local Mac/Windows works for dev; production is Linux.
 - **Docker Engine 24+ and Docker Compose 2.20+.** Quick check: `docker version` and `docker compose version`.
-- **A domain you control,** with two `A` records pointing at your server's public IP — one for Open WebUI (e.g. `ollama.example.com`), one for the Traefik dashboard (e.g. `traefik.ollama.example.com`). DNS must propagate before deploy or the Let's Encrypt TLS-ALPN challenge will fail.
-- **Ports 80, 443, and 11434 open** on the server's firewall. 11434 serves the raw Ollama API through Traefik's TCP entrypoint — close it if you only need the web UI.
+- **A domain you control,** with two `A` records pointing at your server's public IP: one for Open WebUI (e.g. `ollama.example.com`), one for the Traefik dashboard (e.g. `traefik.ollama.example.com`). DNS must propagate before deploy or the Let's Encrypt TLS-ALPN challenge will fail.
+- **Ports 80, 443, and 11434 open** on the server's firewall. 11434 serves the raw Ollama API through Traefik's TCP entrypoint. Close it if you only need the web UI.
 - **Disk for models.** The default `OLLAMA_INSTALL_MODELS=llama3,codegemma,mistral` downloads roughly 12 GB on first start. Set the variable to an empty value in `.env` to skip automatic model installation, or list only the models you need.
 - **RAM/CPU sized to your models.** 8 GB RAM runs 7-8B quantized models on CPU; a GPU changes everything (see [GPU support](#gpu-support)).
 
@@ -92,7 +92,7 @@ docker compose -p ollama logs traefik | grep -i "adding certificate"
 - **Cert issuance fails.** DNS hasn't propagated or port 80 isn't reachable from the internet. Confirm with `dig +short ${OLLAMA_HOSTNAME}` and `curl -I http://${OLLAMA_HOSTNAME}` from outside the server.
 - **`docker compose up` fails with `set in .env`.** A required variable is empty; the error names it. Generate values per the comments in `.env.example`.
 - **`network ollama-network not found`.** Step 2 was skipped.
-- **First responses are slow.** The model loads into RAM on first inference after each idle unload — this is Ollama behavior, not a stack problem.
+- **First responses are slow.** The model loads into RAM on first inference after each idle unload. This is Ollama behavior, not a stack problem.
 
 ### Apply `.env` or compose-file changes
 
@@ -103,35 +103,35 @@ docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d 
 ## Features
 
 - **Ollama** latest stable (0.33.2) with automatic model installation from a configurable list.
-- **Open WebUI** (0.11 line) — multi-user chat interface with per-user history; first registered account becomes admin.
+- **Open WebUI** (0.11 line): multi-user chat interface with per-user history; first registered account becomes admin.
 - **Traefik v3** reverse proxy with automatic HTTP→HTTPS redirect and Let's Encrypt TLS-ALPN certificate issuance.
 - **Raw Ollama API** published through a dedicated Traefik TCP entrypoint on port 11434 for OpenAI-compatible programmatic access.
 - **Basic-auth protected Traefik dashboard** on a separate hostname.
 - **Healthchecks** on every service with start-order dependencies.
-- **Credentials required at deploy time** — compose fails fast if `.env` is incomplete.
+- **Credentials required at deploy time**: compose fails fast if `.env` is incomplete.
 
 ### Typical use cases
 
-- **Private ChatGPT alternative** — chat with local models; prompts and history never leave your server.
-- **LLM API backend for development** — point OpenAI-compatible SDKs at `http://your-server:11434` without cloud API costs.
-- **Team inference server** — one GPU box, many users through Open WebUI accounts.
-- **Model evaluation sandbox** — pull and compare models with `docker exec -it <ollama-container> ollama pull <model>`.
+- **Private ChatGPT alternative**: chat with local models; prompts and history never leave your server.
+- **LLM API backend for development**: point OpenAI-compatible SDKs at `http://your-server:11434` without cloud API costs.
+- **Team inference server**: one GPU box, many users through Open WebUI accounts.
+- **Model evaluation sandbox**: pull and compare models with `docker exec -it <ollama-container> ollama pull <model>`.
 
 ## GPU support
 
-The compose file ships with a commented NVIDIA GPU block on the `ollama` service. To enable it: install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host, uncomment the `deploy.resources.reservations.devices` block, and set `OLLAMA_GPU_COUNT` in `.env` (default `all`). Recreate the stack afterwards. Without a GPU the stack runs fully on CPU — slower, but functional for small quantized models.
+The compose file ships with a commented NVIDIA GPU block on the `ollama` service. To enable it: install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host, uncomment the `deploy.resources.reservations.devices` block, and set `OLLAMA_GPU_COUNT` in `.env` (default `all`). Recreate the stack afterwards. Without a GPU the stack runs fully on CPU, slower, but functional for small quantized models.
 
 ## Supply chain trust
 
 This repository is a **deployment template**, not a custom Docker image. It orchestrates three upstream images:
 
-- [`traefik`](https://hub.docker.com/_/traefik) — reverse proxy, Docker Hub official image
-- [`ollama/ollama`](https://hub.docker.com/r/ollama/ollama) — Ollama upstream
-- [`ghcr.io/open-webui/open-webui`](https://github.com/open-webui/open-webui/pkgs/container/open-webui) — Open WebUI upstream
+- [`traefik`](https://hub.docker.com/_/traefik): reverse proxy, Docker Hub official image
+- [`ollama/ollama`](https://hub.docker.com/r/ollama/ollama): Ollama upstream
+- [`ghcr.io/open-webui/open-webui`](https://github.com/open-webui/open-webui/pkgs/container/open-webui): Open WebUI upstream
 
-All three are pinned to `tag@sha256:<digest>` as interpolation defaults in the compose file's `x-images` block. Compose pulls by digest, not by tag — and `git pull` alone delivers the version combination this repository has tested, because the pins live in the tracked compose file rather than in your `.env`. Setting `TRAEFIK_IMAGE_TAG`, `OLLAMA_IMAGE_TAG`, or `WEBUI_IMAGE_TAG` in `.env` overrides the default when you deliberately want a different version.
+All three are pinned to `tag@sha256:<digest>` as interpolation defaults in the compose file's `x-images` block. Compose pulls by digest, not by tag, and `git pull` alone delivers the version combination this repository has tested, because the pins live in the tracked compose file rather than in your `.env`. Setting `TRAEFIK_IMAGE_TAG`, `OLLAMA_IMAGE_TAG`, or `WEBUI_IMAGE_TAG` in `.env` overrides the default when you deliberately want a different version.
 
-The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Ollama, Open WebUI, and Traefik versions against the latest upstream releases — any drift fails the run and notifies the maintainer. CI's **Deployment Verification** workflow runs on every push, pull request, and every day at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot's `github-actions` ecosystem keeps those fresh.
+The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Ollama, Open WebUI, and Traefik versions against the latest upstream releases: any drift fails the run and notifies the maintainer. CI's **Deployment Verification** workflow runs on every push, pull request, and every day at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot's `github-actions` ecosystem keeps those fresh.
 
 ## Production checklist
 
@@ -160,13 +160,13 @@ Put it on a timer for hands-off minor/patch updates:
 17 5 * * *  /opt/ollama-traefik-letsencrypt-docker-compose/update.sh >> /var/log/ollama-update.log 2>&1
 ```
 
-The script refuses to cross a MAJOR template version on its own — majors are breaking by definition and their release notes exist to be read. After reading them, `./update.sh --allow-major` performs the jump. It also refuses to touch a checkout with local modifications: your customization belongs in `.env`, which updates never overwrite.
+The script refuses to cross a MAJOR template version on its own: majors are breaking by definition and their release notes exist to be read. After reading them, `./update.sh --allow-major` performs the jump. It also refuses to touch a checkout with local modifications: your customization belongs in `.env`, which updates never overwrite.
 
 This is deliberately a host-side script and not a container in the stack: an in-stack updater needs the Docker socket (root on the host) and turns "someone pushed to a repo" into "someone deployed to your machine" with no operator in the loop. A cron job under your own user updates only to tagged, CI-verified states and leaves the trust boundary where it was.
 
 ## Backups
 
-The `backups` container runs on a loop: an initial delay (`OPEN_WEBUI_BACKUP_INIT_SLEEP`, default 30m), then every `OPEN_WEBUI_BACKUP_INTERVAL` (default 24h) it takes a consistent copy of each SQLite database (`webui.db`) through Python's `sqlite3` backup API - no application stop - and a `tar.gz` of the rest of the data directory (live database files excluded), into the `open-webui-backups` volume; files older than `OPEN_WEBUI_BACKUP_PRUNE_DAYS` (default 7) are pruned. Each artefact logs `... backup OK: <file> (<bytes> bytes)` or `FAILED` (kept as `<file>.failed`) — grep the log for `FAILED` from your monitoring.
+The `backups` container runs on a loop: an initial delay (`OPEN_WEBUI_BACKUP_INIT_SLEEP`, default 30m), then every `OPEN_WEBUI_BACKUP_INTERVAL` (default 24h) it takes a consistent copy of each SQLite database (`webui.db`) through Python's `sqlite3` backup API - no application stop - and a `tar.gz` of the rest of the data directory (live database files excluded), into the `open-webui-backups` volume; files older than `OPEN_WEBUI_BACKUP_PRUNE_DAYS` (default 7) are pruned. Each artefact logs `... backup OK: <file> (<bytes> bytes)` or `FAILED` (kept as `<file>.failed`). Grep the log for `FAILED` from your monitoring.
 
 **Verify backups are running:**
 
@@ -181,7 +181,7 @@ docker compose -p open-webui exec backups ls -la /srv/open-webui/backups/
 ./open-webui-restore-data.sh
 ```
 
-**Off-host replication.** Backups live in a named volume on the same host — bind-mount `OPEN_WEBUI_BACKUPS_PATH` to a directory covered by your off-host backup solution (restic, rclone, Borg, S3 sync).
+**Off-host replication.** Backups live in a named volume on the same host. Bind-mount `OPEN_WEBUI_BACKUPS_PATH` to a directory covered by your off-host backup solution (restic, rclone, Borg, S3 sync).
 
 ## Container hardening
 
@@ -191,16 +191,16 @@ Every service runs with `security_opt: no-new-privileges:true`, so a process can
 
 The [Deployment Verification](https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml?query=branch%3Amain) workflow runs on every push, pull request, and every day at 06:00 UTC:
 
-1. **Lint** — shellcheck on `entrypoint.sh`, actionlint on the workflow.
+1. **Lint**: shellcheck on `entrypoint.sh`, actionlint on the workflow.
 2. **Trivy scans** of all three pinned images (CRITICAL/HIGH, SARIF to the Security tab).
-3. **Pin freshness** (daily/manual) — digest drift against registries plus release-lag checks for Ollama, Open WebUI, and Traefik.
-4. **Deploy-and-test** — boots the full stack with ephemeral credentials (model download skipped in CI), then requires the Ollama API (`/api/version`) to answer through the Traefik TCP entrypoint and the Open WebUI front page to answer 200 through HTTPS before the run may pass.
+3. **Pin freshness** (daily/manual): digest drift against registries plus release-lag checks for Ollama, Open WebUI, and Traefik.
+4. **Deploy-and-test**: boots the full stack with ephemeral credentials (model download skipped in CI), then requires the Ollama API (`/api/version`) to answer through the Traefik TCP entrypoint and the Open WebUI front page to answer 200 through HTTPS before the run may pass.
 
-A green run is the authoritative proof that the shipped configuration produces a working instance — not just started containers.
+A green run is the authoritative proof that the shipped configuration produces a working instance, not just started containers.
 
 ### Backup and restore, proven
 
-`tests/e2e-backup-restore.sh` runs against the live stack and is what CI executes after the smoke test. The scenario that matters most is the restore roundtrip: the application is stopped, the baseline database copy is put back, and a row inserted after the baseline is gone. The tests stop the application briefly and write into its data directory — run them on a staging copy with short intervals in `.env` (`OPEN_WEBUI_BACKUP_INIT_SLEEP=15s`, `OPEN_WEBUI_BACKUP_INTERVAL=60s`), never on production.
+`tests/e2e-backup-restore.sh` runs against the live stack and is what CI executes after the smoke test. The scenario that matters most is the restore roundtrip: the application is stopped, the baseline database copy is put back, and a row inserted after the baseline is gone. The tests stop the application briefly and write into its data directory. Run them on a staging copy with short intervals in `.env` (`OPEN_WEBUI_BACKUP_INIT_SLEEP=15s`, `OPEN_WEBUI_BACKUP_INTERVAL=60s`), never on production.
 
 ```bash
 chmod +x tests/e2e-backup-restore.sh
@@ -210,7 +210,7 @@ chmod +x tests/e2e-backup-restore.sh
 ## Security Notes
 
 - Credentials are read from `.env` at deploy time; `.env` is gitignored and the compose file fails fast on missing required variables.
-- The raw Ollama API on 11434 is unauthenticated by design (upstream behavior) — treat network access to that port as full access to your models.
+- The raw Ollama API on 11434 is unauthenticated by design (upstream behavior). Treat network access to that port as full access to your models.
 - Upstream image digests are pinned; the daily freshness job flags drift loudly.
 - CI runs on every push and every day to catch upstream drift.
 
@@ -220,7 +220,7 @@ chmod +x tests/e2e-backup-restore.sh
 
 <div align="center">
 
-**Maintained by [Vladimir Mikhalev](https://github.com/heyvaldemar)** — Docker Captain · IBM Champion · AWS Community Builder
+**Maintained by [Vladimir Mikhalev](https://github.com/heyvaldemar)** · Docker Captain · IBM Champion · AWS Community Builder
 
 [YouTube](https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1) · [Blog](https://heyvaldemar.com) · [LinkedIn](https://www.linkedin.com/in/heyvaldemar/)
 

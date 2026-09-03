@@ -26,7 +26,7 @@ _(no unreleased changes yet)_
 
 ### Added
 
-- **`tests/e2e-backup-restore.sh`** — scenarios against the live stack,
+- **`tests/e2e-backup-restore.sh`**: scenarios against the live stack,
   run by CI on every push: the required-variable guard fires, a backup
   set is produced, the archive is readable, the database copy passes `PRAGMA integrity_check`, a cycle that cannot
   write its archive is reported as `FAILED`, **restore genuinely
@@ -37,14 +37,14 @@ _(no unreleased changes yet)_
 ### Added
 
 - **A `backups` service** for Open WebUI's users, chats and settings (models in ollama-data are re-downloadable and are not backed up): on a loop it takes a consistent copy of each SQLite database (`webui.db`) through Python's `sqlite3` backup API - no application stop - and a `tar.gz` of the rest of the data directory (live database files excluded), logs `OK` or `FAILED` per artefact (a failed archive is kept as `.failed`), and prunes only its own files. Schedule knobs (`OPEN_WEBUI_BACKUP_INIT_SLEEP`, `OPEN_WEBUI_BACKUP_INTERVAL`, `OPEN_WEBUI_BACKUP_PRUNE_DAYS`, path and names) have defaults listed in `.env.example`.
-- **`open-webui-restore-data.sh`** — interactive restore of a backup set: stops open-webui, unpacks the data archive, restores each database copy, starts open-webui.
+- **`open-webui-restore-data.sh`**: interactive restore of a backup set: stops open-webui, unpacks the data archive, restores each database copy, starts open-webui.
 - CI waits for the first backup cycle and proves the archives are readable and the database copy passes `PRAGMA integrity_check`.
 
 ## [1.1.0] - 2026-09-02
 
 ### Added
 
-- **`update.sh`** — unattended updates to the newest tagged release,
+- **`update.sh`**: unattended updates to the newest tagged release,
   and nothing else: a tag is cut only after CI has booted the pinned
   images and passed the smoke tests, so "update to the latest tag" means
   "update to a combination a machine has already run". It refuses to
@@ -61,7 +61,7 @@ v1.2.0.
 ### Security
 
 - **Ollama bumped 0.16.1 → 0.33.2**, **Open WebUI v0.8.3 → 0.11 line**,
-  **Traefik 3.2 → 3.7** — Traefik 3.2's Docker client cannot talk to
+  **Traefik 3.2 → 3.7**: Traefik 3.2's Docker client cannot talk to
   Docker Engine 29 (provider retry loop, silent 404s). This repo carried a
   `DOCKER_API_VERSION=1.47` workaround for exactly that problem; the real
   fix is the version bump, so the workaround is removed.
