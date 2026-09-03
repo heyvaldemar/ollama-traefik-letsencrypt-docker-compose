@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _(no unreleased changes yet)_
 
+## [1.3.0] - 2026-09-02
+
+### Added
+
+- **`tests/e2e-backup-restore.sh`** — scenarios against the live stack,
+  run by CI on every push: the required-variable guard fires, a backup
+  set is produced, the archive is readable, the database copy passes `PRAGMA integrity_check`, a cycle that cannot
+  write its archive is reported as `FAILED`, **restore genuinely
+  replaces the data** (the application is stopped, the baseline database copy is put back, and a row inserted after the baseline is gone), and pruning removes only old files.
+
 ## [1.2.0] - 2026-09-02
 
 ### Added
@@ -64,7 +74,8 @@ v1.2.0.
 
 - Quoting in `entrypoint.sh` model-pull loop.
 
-[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/releases/tag/v1.0.0

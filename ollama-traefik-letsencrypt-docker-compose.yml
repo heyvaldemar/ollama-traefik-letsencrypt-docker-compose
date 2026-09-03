@@ -72,6 +72,9 @@ services:
 
   ollama:
     image: *ollama-image
+    # Hardening: no privilege escalation via setuid binaries
+    security_opt:
+      - no-new-privileges:true
     entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
     volumes:
       - ollama-data:/root/.ollama
@@ -115,6 +118,16 @@ services:
 
   traefik:
     image: *traefik-image
+    # Hardening: no privilege escalation via setuid binaries
+    security_opt:
+      - no-new-privileges:true
+    # Drop every Linux capability; add back only what this image's
+    # entrypoint needs (bind :80/:443, chown its data directory, drop to
+    # its service user).
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
     command:
       # Set the log level (DEBUG, INFO, WARN, ERROR)
       - "--log.level=${TRAEFIK_LOG_LEVEL:-WARN}"
@@ -190,6 +203,18 @@ services:
 
   backups:
     image: python:3.13-alpine@sha256:7415fbc3c9e4979cc717d92377ab2bc7b2b4a2af1ac03cc52b5f3f88efedaf3a
+    # Hardening: no privilege escalation via setuid binaries
+    security_opt:
+      - no-new-privileges:true
+    # Drop every Linux capability; add back only what this image's
+    # entrypoint needs (bind :80/:443, chown its data directory, drop to
+    # its service user).
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
     # Resource limits as .env-overridable defaults (e.g. OPEN_WEBUI_BACKUPS_MEMORY_LIMIT=2g);
     # the override survives every git pull.
     deploy:
@@ -226,7 +251,9 @@ services:
           DATA_FILE="$$OPEN_WEBUI_BACKUPS_PATH/$$OPEN_WEBUI_DATA_BACKUP_NAME-$$STAMP.tar.gz"
           echo "[$$(date -Iseconds)] Starting data backup to $$DATA_FILE"
           tar -C /data --exclude='./webui.db' --exclude='./webui.db-wal' --exclude='./webui.db-shm' --exclude='./cache' -zcpf "$$DATA_FILE" .; RC=$$?
-          if [ "$$RC" -eq 0 ] || [ "$$RC" -eq 1 ]; then
+          # BusyBox tar exits 1 for everything from "file changed" to "cannot
+          # write", so the exit code proves nothing: verify the archive itself.
+          if [ "$$RC" -le 1 ] && [ -f "$$DATA_FILE" ] && gzip -t "$$DATA_FILE" 2>/dev/null; then
             echo "[$$(date -Iseconds)] Data backup OK: $$DATA_FILE ($$(stat -c %s "$$DATA_FILE") bytes)"
           else
             echo "[$$(date -Iseconds)] Data backup FAILED - partial file kept as $$DATA_FILE.failed for diagnosis" >&2

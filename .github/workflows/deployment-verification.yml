@@ -277,6 +277,16 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" exec -T backups sh -c "tar -tzf '$data' > /dev/null" && echo "Data backup valid: $data"
           docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs backups 2>/dev/null | grep -i "backup FAILED" && { echo "::error::the backups log reports a failure"; exit 1; } || true
 
+      - name: Run the backup/restore end-to-end tests
+        # Scenarios against the live stack: required-env guard, backup set
+        # produced, archive and database copy valid, failure detected when the
+        # backups directory cannot be written, restore genuinely replaces the
+        # data (application stopped, copy put back, marker gone), prune keeps
+        # recent files. Same script a maintainer runs on a staging copy.
+        run: |
+          chmod +x tests/e2e-backup-restore.sh
+          ./tests/e2e-backup-restore.sh
+
       - name: Wait for the Traefik dashboard to be ready
         run: |
           # shellcheck disable=SC2016

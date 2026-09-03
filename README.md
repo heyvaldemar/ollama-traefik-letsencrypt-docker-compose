@@ -194,6 +194,15 @@ The [Deployment Verification](https://github.com/heyvaldemar/ollama-traefik-lets
 
 A green run is the authoritative proof that the shipped configuration produces a working instance — not just started containers.
 
+### Backup and restore, proven
+
+`tests/e2e-backup-restore.sh` runs against the live stack and is what CI executes after the smoke test. The scenario that matters most is the restore roundtrip: the application is stopped, the baseline database copy is put back, and a row inserted after the baseline is gone. The tests stop the application briefly and write into its data directory — run them on a staging copy with short intervals in `.env` (`OPEN_WEBUI_BACKUP_INIT_SLEEP=15s`, `OPEN_WEBUI_BACKUP_INTERVAL=60s`), never on production.
+
+```bash
+chmod +x tests/e2e-backup-restore.sh
+./tests/e2e-backup-restore.sh
+```
+
 ## Security Notes
 
 - Credentials are read from `.env` at deploy time; `.env` is gitignored and the compose file fails fast on missing required variables.
