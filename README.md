@@ -17,7 +17,7 @@
 - [Security Notes](#security-notes)
 - [About the maintainer](#about-the-maintainer)
 
-This repository deploys **Ollama** (local LLM runtime) with **Open WebUI** (chat interface) behind **Traefik** with automatic **Let's Encrypt TLS**. One `docker compose up` away from a self-hosted ChatGPT-style service at `https://your-domain`, with the raw Ollama API exposed on port 11434 for programmatic use.
+This repository deploys Ollama (local LLM runtime) with Open WebUI (chat interface) behind Traefik with automatic Let's Encrypt TLS. One `docker compose up` away from a self-hosted ChatGPT-style service at `https://your-domain`, with the raw Ollama API exposed on port 11434 for programmatic use.
 
 📙 Full narrative installation guide on the blog: [heyvaldemar.com/install-ollama-using-docker-compose/](https://www.heyvaldemar.com/install-ollama-using-docker-compose/).
 
@@ -123,7 +123,7 @@ The compose file ships with a commented NVIDIA GPU block on the `ollama` service
 
 ## Supply chain trust
 
-This repository is a **deployment template**, not a custom Docker image. It orchestrates three upstream images:
+This repository is a deployment template, not a custom Docker image. It orchestrates three upstream images:
 
 - [`traefik`](https://hub.docker.com/_/traefik): reverse proxy, Docker Hub official image
 - [`ollama/ollama`](https://hub.docker.com/r/ollama/ollama): Ollama upstream
@@ -133,7 +133,7 @@ All three are pinned to `tag@sha256:<digest>` as interpolation defaults in the c
 
 Two override levels exist per image. `<PREFIX>_IMAGE_VERSION` in `.env` swaps only the version of that image (Compose then pulls the tag, without a digest) and leaves every other pin as tested; `<PREFIX>_IMAGE_TAG` replaces the whole reference, digest included. The variable names are listed in `.env.example`. Nested defaults need Docker Compose v2.5 or newer (2022); v2.0 to v2.4 leave the inner `${...}` unexpanded and `docker compose up` fails with an invalid reference instead of deploying something unexpected.
 
-The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Ollama, Open WebUI, and Traefik versions against the latest upstream releases: any drift fails the run and notifies the maintainer. CI's **Deployment Verification** workflow runs on every push, pull request, and every day at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot's `github-actions` ecosystem keeps those fresh.
+The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Ollama, Open WebUI, and Traefik versions against the latest upstream releases: any drift fails the run and notifies the maintainer. CI's Deployment Verification workflow runs on every push, pull request, and every day at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot's `github-actions` ecosystem keeps those fresh.
 
 ## Production checklist
 
@@ -209,7 +209,7 @@ chmod +x tests/e2e-backup-restore.sh
 ./tests/e2e-backup-restore.sh
 ```
 
-## Security Notes
+## Security notes
 
 - Credentials are read from `.env` at deploy time; `.env` is gitignored and the compose file fails fast on missing required variables.
 - The raw Ollama API on 11434 is unauthenticated by design (upstream behavior). Treat network access to that port as full access to your models.

@@ -45,7 +45,7 @@ _(no unreleased changes yet)_
 - **`tests/e2e-backup-restore.sh`**: scenarios against the live stack,
   run by CI on every push: the required-variable guard fires, a backup
   set is produced, the archive is readable, the database copy passes `PRAGMA integrity_check`, a cycle that cannot
-  write its archive is reported as `FAILED`, **restore genuinely
+ write its archive is reported as `FAILED`, **restore 
   replaces the data** (the application is stopped, the baseline database copy is put back, and a row inserted after the baseline is gone), and pruning removes only old files.
 
 ## [1.2.0] - 2026-09-02
@@ -76,7 +76,7 @@ v1.2.0.
 
 ### Security
 
-- **Ollama bumped 0.16.1 → 0.33.2**, **Open WebUI v0.8.3 → 0.11 line**,
+- **Ollama bumped 0.16.1 → 0.33.2**, Open WebUI v0.8.3 → 0.11 line,
   **Traefik 3.2 → 3.7**: Traefik 3.2's Docker client cannot talk to
   Docker Engine 29 (provider retry loop, silent 404s). This repo carried a
   `DOCKER_API_VERSION=1.47` workaround for exactly that problem; the real
