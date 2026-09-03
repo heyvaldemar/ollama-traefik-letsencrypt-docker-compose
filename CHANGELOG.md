@@ -11,6 +11,19 @@ _(no unreleased changes yet)_
 
 ## [1.3.0] - 2026-09-02
 
+### Security
+
+- **Container hardening.** Every service runs with
+  `security_opt: no-new-privileges:true` (no privilege escalation via
+  setuid binaries even if a process escapes its initial capability
+  set). Infrastructure containers (the reverse proxy, databases,
+  caches, backups) drop every Linux capability and add back only what
+  their entrypoints need (bind :80/:443, chown a data directory, drop to
+  the service user). Application containers keep the default capability
+  set: upstream images assume it, and a wrong guess there is a boot loop
+  in production, not a hardening win. CI boots the stack under these
+  settings on every push.
+
 ### Added
 
 - **`tests/e2e-backup-restore.sh`** — scenarios against the live stack,
