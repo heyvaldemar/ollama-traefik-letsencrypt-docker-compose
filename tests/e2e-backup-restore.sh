@@ -153,18 +153,22 @@ test_database_copy_valid() {
 
 test_backup_failure_detected() {
   # The sidecar runs as root, so permissions cannot stop it. Occupy the
-  # archive names of the next few cycles with directories: tar cannot write
-  # into a directory, the loop must log FAILED. Then clean up.
+  # names the next few cycles will WRITE TO with directories: tar cannot
+  # write into a directory, so the loop must log FAILED. The write target is
+  # <archive>.partial, not the archive itself — the loop only renames to the
+  # final name once the write succeeded, so occupying the final name proves
+  # nothing: tar would write the partial file happily and the rename would
+  # move it inside the directory, reporting success. Then clean up.
   echo "  occupying the next archive names with directories to force a failed cycle"
   local i stamp now
   now=$(backups_sh "date +%s")
   for i in 0 1 2 3; do
     stamp=$(backups_sh "date -d @$(( now + i * 60 )) +%Y-%m-%d_%H-%M")
-    backups_sh "mkdir -p ${BACKUPS_PATH}/${DATA_PREFIX}-${stamp}.tar.gz"
+    backups_sh "mkdir -p ${BACKUPS_PATH}/${DATA_PREFIX}-${stamp}.tar.gz.partial"
   done
   echo "  waiting ${CYCLE_WAIT}s for the failed cycle..."
   sleep "$CYCLE_WAIT"
-  backups_sh "find ${BACKUPS_PATH} -maxdepth 1 -type d -name '${DATA_PREFIX}-*.tar.gz' -exec rm -rf {} +"
+  backups_sh "find ${BACKUPS_PATH} -maxdepth 1 -type d \\( -name '${DATA_PREFIX}-*.tar.gz' -o -name '${DATA_PREFIX}-*.tar.gz.partial' -o -name '${DATA_PREFIX}-*.tar.gz.failed' \\) -exec rm -rf {} +"
   docker logs "$BACKUPS_CONTAINER" 2>&1 | grep -i "backup FAILED" > /dev/null || { fail "expected a 'backup FAILED' log line"; return 1; }
 }
 
