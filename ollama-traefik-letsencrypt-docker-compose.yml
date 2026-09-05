@@ -6,9 +6,9 @@
 # CI (Trivy scans, check-pin-freshness, the ephemeral test .env) reads
 # the pins from these lines — this block is the single source of truth.
 x-images:
-  traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf}}
+  traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:f86a2cab1b5c649070c49f883c743dd32d8485a56e3368c5f93b9e91f1e91259}}
   ollama: &ollama-image ${OLLAMA_IMAGE_TAG:-ollama/ollama:${OLLAMA_IMAGE_VERSION:-0.33.3@sha256:32931b46719f673c05fdbaa81ccb26da18ea4a1c57590a754874ab28ba269eb2}}
-  webui: &webui-image ${WEBUI_IMAGE_TAG:-ghcr.io/open-webui/open-webui:${WEBUI_IMAGE_VERSION:-0.11@sha256:751b617714b91e4cfd0186a509c72480c858e012976103b09a30dad053c36175}}
+  webui: &webui-image ${WEBUI_IMAGE_TAG:-ghcr.io/open-webui/open-webui:${WEBUI_IMAGE_VERSION:-0.11@sha256:41daa0cf2561a5d4c8d1ff31ee2a98d93ab4d3ac2605cac69366ff6a3374a933}}
 
 networks:
   traefik-network:
