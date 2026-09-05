@@ -28,6 +28,17 @@ services:
     # Hardening: no privilege escalation via setuid binaries
     security_opt:
       - no-new-privileges:true
+    # Resource limits as .env-overridable defaults (e.g. OPEN_WEBUI_MEMORY_LIMIT=2g);
+    # the override survives every git pull. This is the interface, not the
+    # model runner: its footprint does not move with model size.
+    deploy:
+      resources:
+        limits:
+          memory: ${OPEN_WEBUI_MEMORY_LIMIT:-1g}
+          cpus: "${OPEN_WEBUI_CPU_LIMIT:-1.0}"
+        reservations:
+          memory: ${OPEN_WEBUI_MEMORY_RESERVATION:-128m}
+          cpus: "${OPEN_WEBUI_CPU_RESERVATION:-0.25}"
     volumes:
       - webui-data:/app/backend/data
     environment:
@@ -78,6 +89,13 @@ services:
     # Hardening: no privilege escalation via setuid binaries
     security_opt:
       - no-new-privileges:true
+    # conformance: allow-no-limits - the working set here is whichever model
+    # you load, not anything this file can know. A 7B model at Q4 wants about
+    # 5 GB resident and a 70B wants ten times that, so any ceiling shipped in
+    # the template is a guess that becomes an OOM kill in the middle of
+    # somebody's generation, on the pull that introduced it. Set
+    # OLLAMA_MEMORY_LIMIT yourself once you know which models you run; leave
+    # headroom above the largest of them.
     entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
     volumes:
       - ollama-data:/root/.ollama
@@ -131,6 +149,14 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
+    deploy:
+      resources:
+        limits:
+          memory: ${TRAEFIK_MEMORY_LIMIT:-256m}
+          cpus: "${TRAEFIK_CPU_LIMIT:-0.5}"
+        reservations:
+          memory: ${TRAEFIK_MEMORY_RESERVATION:-64m}
+          cpus: "${TRAEFIK_CPU_RESERVATION:-0.1}"
     command:
       # Set the log level (DEBUG, INFO, WARN, ERROR)
       - "--log.level=${TRAEFIK_LOG_LEVEL:-WARN}"
