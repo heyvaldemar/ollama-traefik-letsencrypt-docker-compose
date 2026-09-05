@@ -253,14 +253,15 @@ services:
           done
           DATA_FILE="$$OPEN_WEBUI_BACKUPS_PATH/$$OPEN_WEBUI_DATA_BACKUP_NAME-$$STAMP.tar.gz"
           echo "[$$(date -Iseconds)] Starting data backup to $$DATA_FILE"
-          tar -C /data --exclude='./webui.db' --exclude='./webui.db-wal' --exclude='./webui.db-shm' --exclude='./cache' -zcpf "$$DATA_FILE" .; RC=$$?
+          tar -C /data --exclude='./webui.db' --exclude='./webui.db-wal' --exclude='./webui.db-shm' --exclude='./cache' -zcpf "$$DATA_FILE.partial" .; RC=$$?
           # BusyBox tar exits 1 for everything from "file changed" to "cannot
           # write", so the exit code proves nothing: verify the archive itself.
           if [ "$$RC" -le 1 ] && [ -f "$$DATA_FILE" ] && gzip -t "$$DATA_FILE" 2>/dev/null; then
+            mv "$$DATA_FILE.partial" "$$DATA_FILE";
             echo "[$$(date -Iseconds)] Data backup OK: $$DATA_FILE ($$(stat -c %s "$$DATA_FILE") bytes)"
           else
             echo "[$$(date -Iseconds)] Data backup FAILED - partial file kept as $$DATA_FILE.failed for diagnosis" >&2
-            mv "$$DATA_FILE" "$$DATA_FILE.failed" 2>/dev/null || true
+            mv "$$DATA_FILE.partial" "$$DATA_FILE.failed" 2>/dev/null || true
           fi
           if [ "$${OPEN_WEBUI_BACKUP_PRUNE_DAYS:-0}" -ge 1 ]; then
             find "$$OPEN_WEBUI_BACKUPS_PATH" -type f \( -name "$$OPEN_WEBUI_BACKUP_NAME-*" -o -name "$$OPEN_WEBUI_DATA_BACKUP_NAME-*" \) -mtime "+$$OPEN_WEBUI_BACKUP_PRUNE_DAYS" -delete
