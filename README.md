@@ -78,7 +78,7 @@ docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama ps
 
 # The Ollama API answers through the Traefik TCP entrypoint:
 curl -fsS http://localhost:11434/api/version
-# Expected: {"version":"0.33.2"}
+# Expected: {"version":"0.33.3"}
 
 # Model installation progress:
 docker compose -p ollama logs ollama | grep -i pull
@@ -102,7 +102,7 @@ docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d 
 
 ## Features
 
-- **Ollama** latest stable (0.33.2) with automatic model installation from a configurable list.
+- **Ollama** latest stable (0.33.3) with automatic model installation from a configurable list.
 - **Open WebUI** (0.11 line): multi-user chat interface with per-user history; first registered account becomes admin.
 - **Traefik v3** reverse proxy with automatic HTTP→HTTPS redirect and Let's Encrypt TLS-ALPN certificate issuance.
 - **Raw Ollama API** published through a dedicated Traefik TCP entrypoint on port 11434 for OpenAI-compatible programmatic access.
