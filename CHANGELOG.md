@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.5.2] - 2026-09-10
+
 ### Changed
 
 - **`ollama/ollama:0.33.3` moved to `ollama/ollama:0.34.0`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
@@ -124,7 +128,8 @@ v1.2.0.
 
 - Quoting in `entrypoint.sh` model-pull loop.
 
-[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.4.0...v1.4.1
