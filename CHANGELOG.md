@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Security
+
+- **`ghcr.io/open-webui/open-webui:0.11` was rebuilt upstream**; the pin moved from `sha256:41daa0cf2561…` to `sha256:9591b13f1384…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
 
 ## [1.5.5] - 2026-09-21
 
