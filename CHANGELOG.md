@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.5.6] - 2026-09-22
+
 ### Security
 
 - **`ghcr.io/open-webui/open-webui:0.11` was rebuilt upstream**; the pin moved from `sha256:41daa0cf2561…` to `sha256:9591b13f1384…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
@@ -152,7 +156,8 @@ v1.2.0.
 
 - Quoting in `entrypoint.sh` model-pull loop.
 
-[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.5...HEAD
+[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.6...HEAD
+[1.5.6]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.5...v1.5.6
 [1.5.5]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.4...v1.5.5
 [1.5.4]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.5.2...v1.5.3
