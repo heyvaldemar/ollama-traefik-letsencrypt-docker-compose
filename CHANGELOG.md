@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.5.7] - 2026-09-23
+
 ### Fixed
 
 - **The restore merged instead of restoring, and CI never ran it.** It
