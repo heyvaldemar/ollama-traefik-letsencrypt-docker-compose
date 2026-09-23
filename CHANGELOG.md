@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The restore merged instead of restoring, and CI never ran it.** It
+  unpacked the archive over the live data, and tar does not delete, so files
+  created after the backup survived the restore. The end-to-end test did the
+  clearing itself, which is how it passed while the shipped script merged. The
+  script also carried the compose project, the backup directory and both
+  backup names as literals. It now takes every path and name from the running
+  backups container, accepts the timestamp as an argument, stops every service
+  that writes what it restores, clears what the archive holds while keeping
+  what the archive leaves out on purpose, and starts the services again
+  whatever happens. CI runs it.
+
 ### Changed
 
 - **The freshness check has its own workflow, Pin Freshness.** It ran inside Deployment Verification, whose badge is the one at the top of this README. Across the fleet, nine red runs in ten were a pin one version behind - which the fleet's triage moves within the day - and a reader cannot tell that from a stack that does not boot. The badge now says whether the stack boots. The job itself is unchanged.

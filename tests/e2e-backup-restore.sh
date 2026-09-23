@@ -185,9 +185,10 @@ test_restore_roundtrip() {
   before=$(db_query "SELECT count(*) FROM restore_test")
   [[ "$before" -ge 1 ]] || { fail "marker insert failed: count=$before"; return 1; }
   echo "  stopping the application, restoring the copy"
-  docker stop "$APP_CONTAINER" > /dev/null
-  backups_sh "rm -f /data/$DB_FILE /data/$DB_FILE-wal /data/$DB_FILE-shm && gunzip -c $copy > /data/$DB_FILE" || { docker start "$APP_CONTAINER" > /dev/null; fail "restore commands failed"; return 1; }
-  docker start "$APP_CONTAINER" > /dev/null
+  # THE SHIPPED SCRIPT, NOT A COPY OF ITS COMMANDS. This used to put the
+  # database copy back here, so the script, which restores the whole set, never ran.
+  COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ./open-webui-restore-data.sh "$stamp" > /dev/null \
+    || { fail "./open-webui-restore-data.sh failed"; return 1; }
   local exists
   exists=$(db_query "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='restore_test'")
   [[ "$exists" == "0" ]] || { fail "restore_test still present after restore - restore was a no-op"; return 1; }
