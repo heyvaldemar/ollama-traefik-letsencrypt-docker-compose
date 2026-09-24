@@ -135,6 +135,23 @@ Two override levels exist per image. `<PREFIX>_IMAGE_VERSION` in `.env` swaps on
 
 The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Ollama, Open WebUI, and Traefik versions against the latest upstream releases: any drift fails the run and notifies the maintainer. CI's Deployment Verification workflow runs on every push, pull request, and every day at 06:00 UTC. GitHub Actions are pinned by commit SHA; Dependabot's `github-actions` ecosystem keeps those fresh.
 
+### Verify what you deploy
+
+Every release from v1.5.7 on carries three files made on GitHub's runner with a short-lived identity and no stored key: `ollama-traefik-letsencrypt-docker-compose-<tag>.tar.gz`, a `git archive` of exactly the tree the tag points at; `ollama-traefik-letsencrypt-docker-compose-<tag>.tar.gz.sigstore.json`, a keyless [Sigstore](https://www.sigstore.dev/) signature over it; and `ollama-traefik-letsencrypt-docker-compose-<tag>.intoto.jsonl`, [SLSA](https://slsa.dev/) build provenance from the SLSA generator. To check them with nothing from this repository trusted:
+
+```bash
+cosign verify-blob ollama-traefik-letsencrypt-docker-compose-<tag>.tar.gz \
+  --bundle ollama-traefik-letsencrypt-docker-compose-<tag>.tar.gz.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+slsa-verifier verify-artifact ollama-traefik-letsencrypt-docker-compose-<tag>.tar.gz \
+  --provenance-path ollama-traefik-letsencrypt-docker-compose-<tag>.intoto.jsonl \
+  --source-uri github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose
+```
+
+Add `--source-tag <tag>` for a release published after 24 September 2026, which is signed by the run that published it. The five releases before that date were signed by a run started by hand on `main`, so their provenance names the branch, not the tag; the archive is still the tag's tree, and the signature still belongs to this repository's workflow. The workflow that makes them is [`release-assets.yml`](.github/workflows/release-assets.yml).
+
 ## Production checklist
 
 Before exposing this to real users, check every box:
