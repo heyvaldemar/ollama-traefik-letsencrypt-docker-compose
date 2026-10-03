@@ -7,7 +7,7 @@
 # the pins from these lines — this block is the single source of truth.
 x-images:
   traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:24841fe2de7304c149343d877d2923b4c8800a38ba015dea9174c23b20e344a0}}
-  ollama: &ollama-image ${OLLAMA_IMAGE_TAG:-ollama/ollama:${OLLAMA_IMAGE_VERSION:-0.35.0@sha256:2a6e883b917fc543389599dae79918f5cac9e1438890506982f44aa4f5625d01}}
+  ollama: &ollama-image ${OLLAMA_IMAGE_TAG:-ollama/ollama:${OLLAMA_IMAGE_VERSION:-0.35.1@sha256:292ee7945dfc3d5840a181f3ab86fedb1e66703e02c8af98b50f4da56b7e278c}}
   webui: &webui-image ${WEBUI_IMAGE_TAG:-ghcr.io/open-webui/open-webui:${WEBUI_IMAGE_VERSION:-0.11@sha256:9591b13f13843c7721c2b8eaf7382846c81b3ffe126526d1888d1fed50c6a33f}}
 
 networks:
