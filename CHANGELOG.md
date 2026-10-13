@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [1.6.12] - 2026-10-13
+
 ### Fixed
 
 - The freshness check compares Open WebUI's minor line on both sides. The pin is now a full version (0.12.0) and the check compared it as written against the latest minor (0.12), so it reported the pin behind every day while it was current. Each report made fleet triage record a refresh that changed nothing: v1.6.11 is one of those, a changelog line saying 0.12.0 moved to 0.12.0, with the same image as v1.6.10.
@@ -280,7 +284,8 @@ v1.2.0.
 
 - Quoting in `entrypoint.sh` model-pull loop.
 
-[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.6.11...HEAD
+[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.6.12...HEAD
+[1.6.12]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.6.11...v1.6.12
 [1.6.11]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.6.10...v1.6.11
 [1.6.10]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.6.9...v1.6.10
 [1.6.9]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v1.6.8...v1.6.9
