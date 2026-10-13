@@ -116,12 +116,15 @@ jobs:
         # Runs even when the digest comparison above failed, so one run
         # reports every problem it can see instead of one per day.
         if: always()
-        # ghcr.io/open-webui/open-webui publishes per-minor image tags
-        # (e.g. 0.11), so the check compares the minor line.
+        # The minor line is compared; a patch inside it is triage's to move.
+        # THE PIN MAY BE A MINOR TAG (0.11) OR A FULL VERSION (0.12.0), so
+        # both sides are cut to major.minor. Comparing the tag as written read
+        # 0.12.0 against 0.12 as behind, every day, and each alarm made fleet
+        # triage record a refresh that changed nothing (2026-10-13).
         run: |
           pin="$(grep -m1 -oE '\$\{WEBUI_IMAGE_TAG:-.*' ollama-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z0-9_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
-          pinned_minor="${ref##*:}"
+          pinned_minor="$(printf '%s' "${ref##*:}" | cut -d. -f1,2)"
           latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/open-webui/open-webui/releases/latest | jq -r .tag_name)"
           latest="${latest#v}"
           latest_minor="${latest%.*}"

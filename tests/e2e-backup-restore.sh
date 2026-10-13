@@ -187,8 +187,12 @@ test_restore_roundtrip() {
   echo "  stopping the application, restoring the copy"
   # THE SHIPPED SCRIPT, NOT A COPY OF ITS COMMANDS. This used to put the
   # database copy back here, so the script, which restores the whole set, never ran.
-  COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ./open-webui-restore-data.sh "$stamp" > /dev/null \
-    || { fail "./open-webui-restore-data.sh failed"; return 1; }
+  if ! COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ./open-webui-restore-data.sh "$stamp" > /dev/null; then
+    # Twice in forty runs (2026-10-01, 2026-10-13) the restore's shell died
+    # silently. A kernel kill is the one failure that prints nothing.
+    (dmesg 2>/dev/null || sudo -n dmesg 2>/dev/null) | grep -iE 'oom|killed process' | tail -5 >&2 || true
+    fail "./open-webui-restore-data.sh failed"; return 1
+  fi
   local exists
   exists=$(db_query "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='restore_test'")
   [[ "$exists" == "0" ]] || { fail "restore_test still present after restore - restore was a no-op"; return 1; }

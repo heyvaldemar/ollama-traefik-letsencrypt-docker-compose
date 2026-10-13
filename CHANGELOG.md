@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Fixed
+
+- The freshness check compares Open WebUI's minor line on both sides. The pin is now a full version (0.12.0) and the check compared it as written against the latest minor (0.12), so it reported the pin behind every day while it was current. Each report made fleet triage record a refresh that changed nothing: v1.6.11 is one of those, a changelog line saying 0.12.0 moved to 0.12.0, with the same image as v1.6.10.
+
+### Changed
+
+- `open-webui-restore-data.sh` prints the exit status when the restore fails part-way, and the backup/restore test prints the kernel's kill messages when the restore fails. Twice in forty CI runs the restore's shell exited without a word, which is what a process the kernel kills looks like; the next occurrence will say so or rule it out.
 
 ## [1.6.11] - 2026-10-13
 

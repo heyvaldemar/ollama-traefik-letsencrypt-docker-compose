@@ -73,7 +73,10 @@ restart() { docker start $APPS > /dev/null && echo "Started $STOP_SERVICES"; }
 trap 'restart' EXIT
 
 echo "Restoring the set $STAMP"
-if ! docker exec "$BKP" sh -c "set -eu
+# The exit status is kept and printed: a step that fails says why, but a
+# process the kernel kills says nothing, and 137 is then the only clue.
+rc=0
+docker exec "$BKP" sh -c "set -eu
     cd '$ROOT'
     rm -rf /tmp/restore-keep; mkdir -p /tmp/restore-keep
     for p in $KEEP; do
@@ -89,8 +92,9 @@ if ! docker exec "$BKP" sh -c "set -eu
       rm -f \"/data/\$db\" \"/data/\$db-wal\" \"/data/\$db-shm\"
       gunzip -c \"$DIR/$DB_NAME-\${db%%.*}-$STAMP.sqlite3.gz\" > \"/data/\$db\"
       chown \"\$owner\" \"/data/\$db\"
-    done"; then
-  echo "error: the restore failed part-way; the data may be incomplete. Restore another set before using Open WebUI." >&2
+    done" || rc=$?
+if [ "$rc" -ne 0 ]; then
+  echo "error: the restore failed part-way (exit $rc); the data may be incomplete. Restore another set before using Open WebUI." >&2
   exit 1
 fi
 echo "Restored the set $STAMP"
