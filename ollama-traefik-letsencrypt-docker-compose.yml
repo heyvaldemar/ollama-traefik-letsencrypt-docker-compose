@@ -93,18 +93,23 @@ services:
     # you load, not anything this file can know. A 7B model at Q4 wants about
     # 5 GB resident and a 70B wants ten times that, so any ceiling shipped in
     # the template is a guess that becomes an OOM kill in the middle of
-    # somebody's generation, on the pull that introduced it. Set
-    # OLLAMA_MEMORY_LIMIT yourself once you know which models you run; leave
+    # somebody's generation, on the pull that introduced it. Once you know
+    # which models you run, add a deploy.resources.limits block here with
     # headroom above the largest of them.
     entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
     volumes:
       - ollama-data:/root/.ollama
       - ./entrypoint.sh:/entrypoint.sh
     environment:
-      MODELS: ${OLLAMA_INSTALL_MODELS:-llama3,codegemma,mistral}
+      # `-`, not `:-`: set empty, it means pull nothing. With `:-` an empty
+      # value fell back to the default, and the three models were pulled anyway.
+      MODELS: ${OLLAMA_INSTALL_MODELS-llama3,codegemma,mistral}
+    # Only the internal network: Open WebUI reaches Ollama here, and so does
+    # Traefik, for the API route below when it is switched on. Never the
+    # shared traefik-network, where every other stack on the host could call
+    # the API with no credentials.
     networks:
       - ollama-network
-      - traefik-network
     # Uncomment to enable NVIDIA GPU support
     # deploy:
     #   resources:
@@ -120,18 +125,21 @@ services:
       retries: 3
       start_period: 30s
     labels:
-      # Enable Traefik for this container
-      - "traefik.enable=true"
-      # Define TCP router rules for Ollama to match all incoming requests (HostSNI)
-      - "traefik.tcp.routers.ollama.rule=HostSNI(`*`)"
-      # Assign the Ollama router to a named Traefik service
-      - "traefik.tcp.routers.ollama.service=ollama"
-      # Use the 'ollama' (custom) entry point
-      - "traefik.tcp.routers.ollama.entrypoints=ollama"
-      # Define the internal container port for routing to the Ollama service
-      - "traefik.tcp.services.ollama.loadbalancer.server.port=11434"
-      # Specify which Docker network Traefik should use for routing
-      - "traefik.docker.network=traefik-network"
+      # THE API ONLY WHEN ASKED FOR, AND ONLY WITH A PASSWORD. Ollama's API has
+      # no authentication of its own. Up to 1.x this template published it on
+      # the host's port 11434 to whoever could reach the port. Now it is routed
+      # only with OLLAMA_API_ENABLED=true: on its own hostname, over HTTPS,
+      # behind basic auth. README, "Ollama's API from outside".
+      - "traefik.enable=${OLLAMA_API_ENABLED:-false}"
+      - "traefik.http.routers.ollama-api.rule=Host(`${OLLAMA_API_HOSTNAME:-ollama-api.invalid}`)"
+      - "traefik.http.routers.ollama-api.entrypoints=websecure"
+      - "traefik.http.routers.ollama-api.tls=true"
+      - "traefik.http.routers.ollama-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ollama-api.service=ollama-api"
+      - "traefik.http.routers.ollama-api.middlewares=ollama-api-auth"
+      - "traefik.http.middlewares.ollama-api-auth.basicauth.users=${OLLAMA_API_BASIC_AUTH:-}"
+      - "traefik.http.services.ollama-api.loadbalancer.server.port=11434"
+      - "traefik.docker.network=ollama-network"
     restart: unless-stopped
     depends_on:
       traefik:
@@ -179,8 +187,6 @@ services:
       # HTTP -> HTTPS redirect at entrypoint level
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      # Define the custom Ollama entry point on port 11434
-      - "--entryPoints.ollama.address=:11434"
       # Enable the Docker provider to detect containers and their labels
       - "--providers.docker=true"
       # Point Traefik to the Docker socket
@@ -205,12 +211,14 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-certificates:/etc/traefik/acme
+    # traefik-network for the stacks it serves; ollama-network to reach
+    # Ollama's API route, the only way to Ollama from outside the stack.
     networks:
       - traefik-network
+      - ollama-network
     ports:
       - "80:80"
       - "443:443"
-      - "11434:11434"
     healthcheck:
       test: ["CMD", "wget", "http://localhost:8082/ping", "--spider"]
       interval: 10s

@@ -118,6 +118,7 @@ jobs:
       DOCKER_COMPOSE_FILE: ollama-traefik-letsencrypt-docker-compose.yml
       APP_HOSTNAME: ollama.heyvaldemar.net
       APP_TRAEFIK_HOSTNAME: traefik.ollama.heyvaldemar.net
+      APP_API_HOSTNAME: ollama-api.heyvaldemar.net
       COMPOSE_PROJECT_NAME: ollama
 
     steps:
@@ -136,6 +137,13 @@ jobs:
         # x-images defaults apply, so CI always tests exactly the pins the
         # template ships to users who run it unmodified.
         run: |
+          # A throwaway password for Ollama's API route: masked in the log, and
+          # handed to curl through a file, never on a command line.
+          api_password="$(openssl rand -hex 24)"
+          echo "::add-mask::$api_password"
+          api_hash="$(printf '%s' "$api_password" | openssl passwd -apr1 -stdin)"
+          api_users="ollamaapi:${api_hash//\$/\$\$}"
+          (umask 077; printf 'user = "ollamaapi:%s"\n' "$api_password" > "$RUNNER_TEMP/ollama-api.curl")
           cat > .env <<EOF
           TRAEFIK_ACME_EMAIL=ci@example.com
           TRAEFIK_HOSTNAME=${APP_TRAEFIK_HOSTNAME}
@@ -145,6 +153,10 @@ jobs:
           OLLAMA_INSTALL_MODELS=
           OPEN_WEBUI_BACKUP_INIT_SLEEP=15s
           OPEN_WEBUI_BACKUP_INTERVAL=60s
+          # Ollama's API route on, so the run can prove it refuses strangers.
+          OLLAMA_API_ENABLED=true
+          OLLAMA_API_HOSTNAME=${APP_API_HOSTNAME}
+          OLLAMA_API_BASIC_AUTH=${api_users}
           EOF
           echo "Generated ephemeral .env for CI run"
 
@@ -220,19 +232,84 @@ jobs:
         run: |
           echo "127.0.0.1 $APP_HOSTNAME" | sudo tee -a /etc/hosts
           echo "127.0.0.1 $APP_TRAEFIK_HOSTNAME" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 $APP_API_HOSTNAME" | sudo tee -a /etc/hosts
 
       - name: Print Docker Compose services status
         run: docker ps
 
-      - name: Wait for the Ollama API through the Traefik TCP entrypoint
+      - name: Ollama answers nothing unauthenticated on the host
+        # Ollama's API has no authentication: whoever reaches it can use the
+        # machine's compute and pull or delete models.
+        run: |
+          if curl -s --max-time 5 "http://127.0.0.1:11434/api/version" >/dev/null; then
+            echo "::error::Ollama answered on the host's port 11434 with no credentials: its API is published to anyone who reaches the port"
+            exit 1
+          fi
+          echo "nothing answers on the host's port 11434"
+
+      - name: Ollama's API route answers only with credentials
+        # Switched on (OLLAMA_API_ENABLED=true in the test .env), the API is an
+        # HTTPS route on its own hostname behind basic auth. Without the
+        # password, reading the version and deleting a model both get 401.
         run: |
           # shellcheck disable=SC2016
-          timeout 5m bash -c 'while ! curl -fs "http://127.0.0.1:11434/api/version" | grep -q version; do
-            echo "Waiting for the Ollama API..."
+          timeout 5m bash -c 'until curl -fsk --config "$RUNNER_TEMP/ollama-api.curl" "https://$APP_API_HOSTNAME/api/version" | grep -q version; do
+            echo "Waiting for the Ollama API route..."
             sleep 10
           done'
-          curl -fs "http://127.0.0.1:11434/api/version"
+          curl -fsk --config "$RUNNER_TEMP/ollama-api.curl" "https://$APP_API_HOSTNAME/api/version"
           echo
+          for probe in "GET /api/version" "DELETE /api/delete"; do
+            code="$(curl -sk -o /dev/null -w '%{http_code}' -X "${probe% *}" "https://$APP_API_HOSTNAME${probe#* }")"
+            if [ "$code" != 401 ]; then
+              echo "::error::$probe without credentials answered $code, not 401"
+              exit 1
+            fi
+            echo "$probe without credentials: 401"
+          done
+          code="$(curl -sk -o /dev/null -w '%{http_code}' -u ollamaapi:wrong-password "https://$APP_API_HOSTNAME/api/version")"
+          if [ "$code" != 401 ]; then
+            echo "::error::a wrong password answered $code, not 401"
+            exit 1
+          fi
+          echo "a wrong password: 401"
+
+      - name: Ollama is not on the shared traefik-network
+        # Every stack behind this Traefik joins traefik-network, and Ollama
+        # answers anyone who reaches it, so it sits on ollama-network only. The
+        # same probe must reach it from ollama-network, or its failure from
+        # traefik-network proves nothing.
+        run: |
+          probe() { docker run --rm --network "$1" alpine:3.20 wget -q -T 5 -O- http://ollama:11434/api/version 2>&1 || true; }
+          out="$(probe "$NETWORK_ONE")"
+          if ! grep -q version <<<"$out"; then
+            echo "::error::the probe cannot reach Ollama even from $NETWORK_ONE, so it proves nothing: $out"
+            exit 1
+          fi
+          echo "from $NETWORK_ONE: $out"
+          out="$(probe "$NETWORK_TWO")"
+          if grep -q version <<<"$out"; then
+            echo "::error::Ollama answered from $NETWORK_TWO, where every stack behind this Traefik can call it"
+            exit 1
+          fi
+          echo "from $NETWORK_TWO: $out"
+
+      - name: Set empty, OLLAMA_INSTALL_MODELS pulls nothing
+        # The test .env sets it empty to skip the multi-GB downloads. Up to 1.x
+        # the compose file read it with `:-`, which treats empty as unset, and
+        # every run started pulling llama3 (4.7 GB) anyway.
+        run: |
+          # shellcheck disable=SC2016
+          timeout 2m bash -c 'until docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs ollama 2>/dev/null | grep -q "All models installed"; do
+            echo "Waiting for the model step of the entrypoint..."
+            sleep 5
+          done'
+          pulls="$(docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs ollama 2>/dev/null | grep -c "Installing/Updating model" || true)"
+          if [ "$pulls" != 0 ]; then
+            echo "::error::OLLAMA_INSTALL_MODELS is set empty and the entrypoint still pulled $pulls model(s)"
+            exit 1
+          fi
+          echo "no model pulled"
 
       - name: Wait for Open WebUI through Traefik
         run: |
@@ -276,6 +353,26 @@ jobs:
             echo "Waiting for the dashboard to be ready..."
             sleep 10
           done'
+
+      - name: Switched off, the API route is gone
+        # OLLAMA_API_ENABLED=false (the default) must take the route away, not
+        # merely leave it unused: Traefik answers 404 for the hostname, even
+        # with the right password.
+        run: |
+          sed -i 's/^OLLAMA_API_ENABLED=.*/OLLAMA_API_ENABLED=false/' .env
+          docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" up -d ollama
+          code=""
+          for _ in $(seq 1 12); do
+            code="$(curl -sk -o /dev/null -w '%{http_code}' --config "$RUNNER_TEMP/ollama-api.curl" "https://$APP_API_HOSTNAME/api/version")"
+            [ "$code" = 404 ] && break
+            sleep 5
+          done
+          if [ "$code" != 404 ]; then
+            echo "::error::with OLLAMA_API_ENABLED=false the API hostname still answers $code, not 404"
+            exit 1
+          fi
+          echo "switched off: 404"
+          curl -fskL "https://$APP_HOSTNAME/" -o /dev/null -w "Open WebUI front page after Ollama was recreated: %{http_code}\n"
 
       - name: Show container logs on failure
         if: failure()

@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: Ollama's API is no longer published on port 11434.** Ollama has no authentication of its own, and 1.x routed its API through a Traefik TCP entrypoint on the host's port 11434: anyone who could reach the port could run models, pull new ones and delete the ones there. The entrypoint and the port are gone, and the `ollama` service has left the shared `traefik-network`, where every other stack behind the same Traefik could call it. Open WebUI is unaffected; it reaches Ollama on `ollama-network`. To call the API from outside again: set `OLLAMA_API_ENABLED=true`, `OLLAMA_API_HOSTNAME` (with a DNS `A` record) and `OLLAMA_API_BASIC_AUTH` (htpasswd output, `$` doubled, commands in `.env.example`), recreate `ollama`, and point clients at `https://<OLLAMA_API_HOSTNAME>` with that user and password. A client that cannot send basic auth can have the port back through an override file shown in the README, on the loopback address behind an SSH tunnel, or on every address exactly as 1.x had it. Close 11434 on your firewall. CI now requires that nothing answers on 11434, that the route answers 401 without the password, that Ollama is unreachable from `traefik-network`, and that the switched-off route answers 404.
+
 ### Fixed
+
+- **`OLLAMA_INSTALL_MODELS=` (set empty) pulls nothing.** The compose file read it with `:-`, which treats empty as unset, so an empty value pulled the default `llama3,codegemma,mistral` anyway. CI's own `.env` sets it empty to skip the download, and its container log shows `Installing/Updating model llama3...` and a 4.7 GB download on every run. Now `-`, and CI requires that no model is pulled.
+- **`OLLAMA_MEMORY_LIMIT` no longer appears in `.env.example`.** The compose file never read it, so setting it limited nothing. The comment now says what works: a `deploy.resources.limits` block on the `ollama` service.
+- **The README's backup commands use the stack's project name.** They ran `docker compose -p open-webui`; the stack runs as `-p ollama`.
 
 - **What a restore sets aside stays inside the volume.** Here that is `cache`, which holds Open WebUI's models. Moved through the backups container's `/tmp`, it was copied into the container's own layer and out again; inside the volume a move is a rename and nothing is copied. `tests/e2e-backup-restore.sh` now puts a 400 MB file in the cache, more than the backups container's 256 MB, and requires it whole after the restore.
 - **The restore no longer hands the data root to root.** `open-webui-restore-data.sh` put the paths it sets aside back with `cp -a /tmp/restore-keep/. <root>/`, which copies the directory's own owner and mode onto the data root, and the restored database was then given that owner. Open WebUI's image runs as root (`0:0`), so no restore of this template was broken. Kept paths now go back one by one, and nothing is copied over the root. Found by the AnythingLLM template's first restore test, where an application running as uid 1000 came back unable to write.

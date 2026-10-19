@@ -11,6 +11,7 @@
 - [Getting started](#getting-started)
 - [Features](#features)
   - [Typical use cases](#typical-use-cases)
+- [Ollama's API from outside](#ollamas-api-from-outside)
 - [GPU support](#gpu-support)
 - [Supply chain trust](#supply-chain-trust)
 - [Production checklist](#production-checklist)
@@ -18,7 +19,7 @@
 - [Security Notes](#security-notes)
 - [About the maintainer](#about-the-maintainer)
 
-This repository deploys Ollama (local LLM runtime) with Open WebUI (chat interface) behind Traefik with automatic Let's Encrypt TLS. One `docker compose up` away from a self-hosted ChatGPT-style service at `https://your-domain`, with the raw Ollama API exposed on port 11434 for programmatic use.
+This repository deploys Ollama (local LLM runtime) with Open WebUI (chat interface) behind Traefik with automatic Let's Encrypt TLS. One `docker compose up` away from a self-hosted ChatGPT-style service at `https://your-domain`. Ollama's own API has no authentication, so it stays inside the stack; programmatic access is an opt-in HTTPS route behind a password.
 
 📙 Full narrative installation guide on the blog: [heyvaldemar.com/install-ollama-using-docker-compose/](https://www.heyvaldemar.com/install-ollama-using-docker-compose/).
 
@@ -28,7 +29,7 @@ This repository deploys Ollama (local LLM runtime) with Open WebUI (chat interfa
 |------|-----------|----------------|------------|------------------------|
 | Ready to deploy in <10 min | ✅ | ❌ hours of setup | ✅ if K8s is already running | Often |
 | TLS via Let's Encrypt, auto-renewed | ✅ Traefik ACME built-in | Manual certbot | Via cert-manager | Rare |
-| Web chat UI + raw API on one host | ✅ | Separate installs | Varies | Varies |
+| Web chat UI + password-protected API on one host | ✅ | Separate installs | Varies | Varies |
 | Models auto-installed on first start | ✅ configurable list | Manual `ollama pull` | Init containers | Rare |
 | Upstream images pinned by `sha256` digest | ✅ | N/A | Depends | Rare |
 | Weekly pin-freshness check in CI | ✅ | N/A | Depends | Rare |
@@ -43,8 +44,8 @@ Before you start, you need:
 
 - **A Linux server** with a public IP. Tested on Ubuntu 22.04 LTS+ and Debian 12+. Local Mac/Windows works for dev; production is Linux.
 - **Docker Engine 24+ and Docker Compose 2.20+.** Quick check: `docker version` and `docker compose version`.
-- **A domain you control,** with two `A` records pointing at your server's public IP: one for Open WebUI (e.g. `ollama.example.com`), one for the Traefik dashboard (e.g. `traefik.ollama.example.com`). DNS must propagate before deploy or the Let's Encrypt TLS-ALPN challenge will fail.
-- **Ports 80, 443, and 11434 open** on the server's firewall. 11434 serves the raw Ollama API through Traefik's TCP entrypoint. Close it if you only need the web UI.
+- **A domain you control,** with two `A` records pointing at your server's public IP: one for Open WebUI (e.g. `ollama.example.com`), one for the Traefik dashboard (e.g. `traefik.ollama.example.com`). A third if you switch on [Ollama's API from outside](#ollamas-api-from-outside). DNS must propagate before deploy or the Let's Encrypt TLS-ALPN challenge will fail.
+- **Ports 80 and 443 open** on the server's firewall, and nothing else: Ollama is not published on a host port.
 - **Disk for models.** The default `OLLAMA_INSTALL_MODELS=llama3,codegemma,mistral` downloads roughly 12 GB on first start. Set the variable to an empty value in `.env` to skip automatic model installation, or list only the models you need.
 - **RAM/CPU sized to your models.** 8 GB RAM runs 7-8B quantized models on CPU; a GPU changes everything (see [GPU support](#gpu-support)).
 
@@ -77,9 +78,8 @@ Within a minute or two `https://${OLLAMA_HOSTNAME}` serves Open WebUI with a fre
 # All three services should report as healthy / up:
 docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama ps
 
-# The Ollama API answers through the Traefik TCP entrypoint:
-curl -fsS http://localhost:11434/api/version
-# Expected: {"version":"0.40.6"}
+# The Ollama server answers inside the stack (an empty list until a model is pulled):
+docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama exec ollama ollama list
 
 # Model installation progress:
 docker compose -p ollama logs ollama | grep -i pull
@@ -104,9 +104,9 @@ docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d 
 ## Features
 
 - **Ollama** latest stable (0.40.6) with automatic model installation from a configurable list.
-- **Open WebUI** (0.11 line): multi-user chat interface with per-user history; first registered account becomes admin.
+- **Open WebUI** (0.12 line): multi-user chat interface with per-user history; first registered account becomes admin.
 - **Traefik v3** reverse proxy with automatic HTTP→HTTPS redirect and Let's Encrypt TLS-ALPN certificate issuance.
-- **Raw Ollama API** published through a dedicated Traefik TCP entrypoint on port 11434 for OpenAI-compatible programmatic access.
+- **Ollama's API on no host port.** Open WebUI reaches it on the internal `ollama-network`; from outside it is an opt-in HTTPS route on its own hostname behind basic auth.
 - **Basic-auth protected Traefik dashboard** on a separate hostname.
 - **Healthchecks** on every service with start-order dependencies.
 - **Credentials required at deploy time**: compose fails fast if `.env` is incomplete.
@@ -114,9 +114,46 @@ docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d 
 ### Typical use cases
 
 - **Private ChatGPT alternative**: chat with local models; prompts and history never leave your server.
-- **LLM API backend for development**: point OpenAI-compatible SDKs at `http://your-server:11434` without cloud API costs.
+- **LLM API backend for development**: switch on the API route and call `https://<OLLAMA_API_HOSTNAME>` with basic auth, without cloud API costs.
 - **Team inference server**: one GPU box, many users through Open WebUI accounts.
 - **Model evaluation sandbox**: pull and compare models with `docker exec -it <ollama-container> ollama pull <model>`.
+
+## Ollama's API from outside
+
+Ollama's API has no authentication: whoever reaches it can run models on your hardware, pull new ones into your disk and delete the ones you have. Up to 1.x this template published it on the host's port 11434 through a Traefik TCP entrypoint, to anyone who could reach the port. Since 2.0.0 it is on no host port and not on the shared `traefik-network`; Open WebUI reaches it on `ollama-network`, and nothing else does.
+
+To call it from outside, switch on its route in `.env` (commands for the hash are in `.env.example`) and add an `A` record for the hostname:
+
+```ini
+# .env
+OLLAMA_API_ENABLED=true
+OLLAMA_API_HOSTNAME=ollama-api.example.com
+OLLAMA_API_BASIC_AUTH=ollamaapi:$$2y$$05$$...   # htpasswd output, $ doubled
+```
+
+Recreate the `ollama` service, and the API answers on HTTPS with a Let's Encrypt certificate, only with the password:
+
+```bash
+docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d ollama
+curl -fsS -u ollamaapi https://ollama-api.example.com/api/version   # curl asks for the password
+```
+
+Switched on without `OLLAMA_API_BASIC_AUTH`, Traefik logs `no users found` and serves no route at all. Set `OLLAMA_API_ENABLED=false` (the default) and recreate `ollama` to take the route away again. CI proves each of these on every push: nothing answers on port 11434, the route answers 401 without the password and with a wrong one, Ollama is unreachable from `traefik-network`, and the switched-off route answers 404.
+
+**The 1.x behaviour, if you need it back.** For a client that cannot send basic auth, publish the port yourself in a file next to the template, for example `ollama-port.override.yml`:
+
+```yaml
+services:
+  ollama:
+    ports:
+      - "127.0.0.1:11434:11434"   # loopback only; reach it through an SSH tunnel
+```
+
+```bash
+docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -f ollama-port.override.yml -p ollama up -d
+```
+
+`"11434:11434"` instead of the loopback address restores exactly what 1.x shipped: the API open to anyone who reaches the port. `update.sh` deploys the template file alone, so with an override file in use, run updates by hand with both `-f` flags.
 
 ## GPU support
 
@@ -158,7 +195,7 @@ Add `--source-tag <tag>` for a release published after 24 September 2026, which 
 Before exposing this to real users, check every box:
 
 - [ ] **Register the admin account first.** Open WebUI grants admin to the first registered user. Do it before sharing the URL, then disable open sign-ups in Open WebUI's admin settings if the instance is not meant to be public.
-- [ ] **Decide about port 11434.** The raw Ollama API has no authentication of its own. If you only need the web UI, close 11434 on your firewall; if you need the API, restrict source IPs.
+- [ ] **Leave Ollama's API off unless a client needs it.** Switched on, it is guarded by one basic-auth password: generate a strong one per deployment, and treat it as full access to your models.
 - [ ] **Strong Traefik dashboard hash.** Regenerate `TRAEFIK_BASIC_AUTH` per deployment (command in `.env.example`).
 - [ ] **Size your models to your RAM/VRAM.** A model that does not fit forces heavy swapping or OOM kills.
 - [ ] **Verify Let's Encrypt cert issuance** in the Traefik logs on first start.
@@ -191,8 +228,8 @@ The `backups` container runs on a loop: an initial delay (`OPEN_WEBUI_BACKUP_INI
 **Verify backups are running:**
 
 ```bash
-docker compose -p open-webui logs backups | tail -5
-docker compose -p open-webui exec backups ls -la /srv/open-webui/backups/
+docker compose -p ollama logs backups | tail -5
+docker compose -p ollama exec backups ls -la /srv/open-webui/backups/
 ```
 
 **Restore** a backup set with the interactive script (`chmod +x open-webui-restore-data.sh` once): it stops open-webui, unpacks the data archive over the data directory, restores each database from its consistent copy, and starts open-webui again.
@@ -216,7 +253,7 @@ The [Deployment Verification](https://github.com/heyvaldemar/ollama-traefik-lets
 1. **Lint**: shellcheck on `entrypoint.sh`, actionlint on the workflow.
 2. **Trivy scans** of all three pinned images (CRITICAL/HIGH, SARIF to the Security tab).
 3. **Pin freshness** (daily/manual): digest drift against registries plus release-lag checks for Ollama, Open WebUI, and Traefik.
-4. **Deploy-and-test**: boots the full stack with ephemeral credentials (model download skipped in CI), then requires the Ollama API (`/api/version`) to answer through the Traefik TCP entrypoint and the Open WebUI front page to answer 200 through HTTPS before the run may pass.
+4. **Deploy-and-test**: boots the full stack with ephemeral credentials (model download skipped in CI, and checked to be skipped). Nothing may answer on the host's port 11434; Ollama's API route must answer `/api/version` with the password and 401 without it or with a wrong one; Ollama must be unreachable from `traefik-network`; the Open WebUI front page must answer 200 through HTTPS; and with `OLLAMA_API_ENABLED=false` the API hostname must answer 404.
 
 A green run is the authoritative proof that the shipped configuration produces a working instance, not just started containers.
 
@@ -232,7 +269,7 @@ chmod +x tests/e2e-backup-restore.sh
 ## Security notes
 
 - Credentials are read from `.env` at deploy time; `.env` is gitignored and the compose file fails fast on missing required variables.
-- The raw Ollama API on 11434 is unauthenticated by design (upstream behavior). Treat network access to that port as full access to your models.
+- Ollama's API is unauthenticated upstream. This stack publishes it on no host port; switched on, it is reachable only through Traefik over HTTPS with basic auth. See [Ollama's API from outside](#ollamas-api-from-outside).
 - Upstream image digests are pinned; the daily freshness job flags drift loudly.
 - CI runs on every push and every day to catch upstream drift.
 
