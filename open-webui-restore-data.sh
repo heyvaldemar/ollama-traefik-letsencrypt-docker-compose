@@ -18,6 +18,13 @@
 # from the archive; those are set aside, the rest is cleared and unpacked, and
 # they are put back.
 #
+# KEPT PATHS GO BACK ONE BY ONE. They used to come back with
+# `cp -a /tmp/restore-keep/. <root>/`, and copying `<dir>/.` copies the
+# directory itself too: the data root became root-owned, and so did the
+# database given that owner. An application that runs unprivileged then reads
+# everything and writes nothing ("attempt to write a readonly database"), as
+# the AnythingLLM template's first restore test showed on 2026-10-19.
+#
 # CI runs this exact file.
 #
 # Set COMPOSE_PROJECT_NAME if the stack was started with a -p other than ollama.
@@ -85,7 +92,10 @@ docker exec "$BKP" sh -c "set -eu
     done
     for part in $PARTS; do find \"\$part\" -mindepth 1 -delete; done
     tar -xzpf '$ARCHIVE' -C '$ROOT'
-    cp -a /tmp/restore-keep/. '$ROOT'/
+    for p in $KEEP; do
+      [ -e \"/tmp/restore-keep/\$p\" ] || continue
+      rm -rf \"\$p\"; mkdir -p \"\$(dirname \"\$p\")\"; mv \"/tmp/restore-keep/\$p\" \"\$p\"
+    done
     rm -rf /tmp/restore-keep
     owner=\$(stat -c %u:%g /data)
     for db in $DBS; do
