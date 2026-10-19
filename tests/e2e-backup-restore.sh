@@ -189,7 +189,16 @@ test_restore_roundtrip() {
   # models. 400 MB, against the container's 256 MB, must come through whole.
   # (It did with the cache moved through /tmp too, run 39295624808: the
   # kernel kills this test has seen are not explained by that copy.)
-  backups_sh "mkdir -p /data/cache && dd if=/dev/zero of=/data/cache/e2e-large.bin bs=1M count=400 2>/dev/null"
+  # Written by a container of its own, with no memory limit: written from the
+  # 256 MB backups container, dd stopped at 378150912 bytes in run
+  # 39297326070, and the restore then faithfully kept a file that was never
+  # whole. The size is checked before the restore, so setup cannot pass for
+  # a restore that lost data.
+  local volume
+  volume="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' "$BACKUPS_CONTAINER")"
+  docker run --rm -v "$volume":/data alpine:3.20 sh -c 'mkdir -p /data/cache && dd if=/dev/zero of=/data/cache/e2e-large.bin bs=1M count=400 2>/dev/null && sync'
+  [[ "$(backups_sh "stat -c %s /data/cache/e2e-large.bin" | tr -d '[:space:]')" == "419430400" ]] \
+    || { fail "setup: the 400 MB cache file could not be written whole"; return 1; }
   echo "  stopping the application, restoring the copy"
   # THE SHIPPED SCRIPT, NOT A COPY OF ITS COMMANDS. This used to put the
   # database copy back here, so the script, which restores the whole set, never ran.
