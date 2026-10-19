@@ -184,6 +184,12 @@ test_restore_roundtrip() {
   db_query "INSERT INTO restore_test VALUES (1)" > /dev/null
   before=$(db_query "SELECT count(*) FROM restore_test")
   [[ "$before" -ge 1 ]] || { fail "marker insert failed: count=$before"; return 1; }
+  # A CACHE LARGER THAN THE BACKUPS CONTAINER'S MEMORY LIMIT. The restore
+  # sets the cache aside and puts it back, and Open WebUI's cache holds
+  # models. 400 MB, against the container's 256 MB, must come through whole.
+  # (It did with the cache moved through /tmp too, run 39295624808: the
+  # kernel kills this test has seen are not explained by that copy.)
+  backups_sh "mkdir -p /data/cache && dd if=/dev/zero of=/data/cache/e2e-large.bin bs=1M count=400 2>/dev/null"
   echo "  stopping the application, restoring the copy"
   # THE SHIPPED SCRIPT, NOT A COPY OF ITS COMMANDS. This used to put the
   # database copy back here, so the script, which restores the whole set, never ran.
@@ -197,6 +203,11 @@ test_restore_roundtrip() {
   exists=$(db_query "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='restore_test'")
   [[ "$exists" == "0" ]] || { fail "restore_test still present after restore - restore was a no-op"; return 1; }
   echo "  marker absent after restore - the copy is restorable"
+  local kept
+  kept=$(backups_sh "stat -c %s /data/cache/e2e-large.bin 2>/dev/null" | tr -d '[:space:]')
+  backups_sh "rm -f /data/cache/e2e-large.bin"
+  [[ "$kept" == "419430400" ]] || { fail "the 400 MB cache file was not kept through the restore (size: '${kept:-gone}')"; return 1; }
+  echo "  the 400 MB cache, larger than the backups container's memory limit, was kept through the restore"
 }
 
 test_prune_removes_old() {

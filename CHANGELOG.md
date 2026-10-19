@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **What a restore sets aside stays inside the volume.** Here that is `cache`, which holds Open WebUI's models. Moved through the backups container's `/tmp`, it was copied into the container's own layer and out again; inside the volume a move is a rename and nothing is copied. `tests/e2e-backup-restore.sh` now puts a 400 MB file in the cache, more than the backups container's 256 MB, and requires it whole after the restore.
 - **The restore no longer hands the data root to root.** `open-webui-restore-data.sh` put the paths it sets aside back with `cp -a /tmp/restore-keep/. <root>/`, which copies the directory's own owner and mode onto the data root, and the restored database was then given that owner. Open WebUI's image runs as root (`0:0`), so no restore of this template was broken. Kept paths now go back one by one, and nothing is copied over the root. Found by the AnythingLLM template's first restore test, where an application running as uid 1000 came back unable to write.
 
 ## [1.6.15] - 2026-10-18

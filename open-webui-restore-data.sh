@@ -25,6 +25,13 @@
 # everything and writes nothing ("attempt to write a readonly database"), as
 # the AnythingLLM template's first restore test showed on 2026-10-19.
 #
+# WHAT IS SET ASIDE STAYS ON THE SAME FILESYSTEM. It used to go to /tmp in
+# the backups container, which is not the volume, so every move there and
+# back was a copy into the container's own layer and out again: for Open
+# WebUI's cache, which holds models, that is hundreds of megabytes twice.
+# Inside the volume a move is a rename: nothing is copied and nothing lands
+# in the container's layer, however large the kept paths are.
+#
 # CI runs this exact file.
 #
 # Set COMPOSE_PROJECT_NAME if the stack was started with a -p other than ollama.
@@ -85,18 +92,19 @@ echo "Restoring the set $STAMP"
 rc=0
 docker exec "$BKP" sh -c "set -eu
     cd '$ROOT'
-    rm -rf /tmp/restore-keep; mkdir -p /tmp/restore-keep
+    keep='$ROOT/.restore-keep'
+    rm -rf \"\$keep\"; mkdir -p \"\$keep\"
     for p in $KEEP; do
       [ -e \"\$p\" ] || continue
-      mkdir -p \"/tmp/restore-keep/\$(dirname \"\$p\")\"; mv \"\$p\" \"/tmp/restore-keep/\$p\"
+      mkdir -p \"\$keep/\$(dirname \"\$p\")\"; mv \"\$p\" \"\$keep/\$p\"
     done
-    for part in $PARTS; do find \"\$part\" -mindepth 1 -delete; done
+    for part in $PARTS; do find \"\$part\" -mindepth 1 -maxdepth 1 ! -name .restore-keep -exec rm -rf {} +; done
     tar -xzpf '$ARCHIVE' -C '$ROOT'
     for p in $KEEP; do
-      [ -e \"/tmp/restore-keep/\$p\" ] || continue
-      rm -rf \"\$p\"; mkdir -p \"\$(dirname \"\$p\")\"; mv \"/tmp/restore-keep/\$p\" \"\$p\"
+      [ -e \"\$keep/\$p\" ] || continue
+      rm -rf \"\$p\"; mkdir -p \"\$(dirname \"\$p\")\"; mv \"\$keep/\$p\" \"\$p\"
     done
-    rm -rf /tmp/restore-keep
+    rm -rf \"\$keep\"
     owner=\$(stat -c %u:%g /data)
     for db in $DBS; do
       rm -f \"/data/\$db\" \"/data/\$db-wal\" \"/data/\$db-shm\"
