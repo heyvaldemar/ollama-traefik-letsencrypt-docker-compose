@@ -103,7 +103,7 @@ docker compose -f ollama-traefik-letsencrypt-docker-compose.yml -p ollama up -d 
 
 ## Features
 
-- **Ollama** latest stable (0.40.9) with automatic model installation from a configurable list.
+- **Ollama** latest stable (0.40.10) with automatic model installation from a configurable list.
 - **Open WebUI** (0.12 line): multi-user chat interface with per-user history; first registered account becomes admin.
 - **Traefik v3** reverse proxy with automatic HTTP→HTTPS redirect and Let's Encrypt TLS-ALPN certificate issuance.
 - **Ollama's API on no host port.** Open WebUI reaches it on the internal `ollama-network`; from outside it is an opt-in HTTPS route on its own hostname behind basic auth.
