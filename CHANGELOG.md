@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`ollama/ollama:0.40.11` moved to `ollama/ollama:0.40.12`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
 
 ## [2.0.9] - 2026-10-27
 
