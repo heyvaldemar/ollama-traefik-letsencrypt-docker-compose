@@ -112,31 +112,48 @@ jobs:
             echo "Ollama pin ${pinned_version} is ahead of the published ${latest}, which is what a maintenance release for an older branch looks like"
           fi
 
-      - name: Compare pinned Open WebUI minor against the latest release
+      - name: Compare pinned Open WebUI version against the latest release
         # Runs even when the digest comparison above failed, so one run
         # reports every problem it can see instead of one per day.
         if: always()
-        # The minor line is compared; a patch inside it is triage's to move.
-        # THE PIN MAY BE A MINOR TAG (0.11) OR A FULL VERSION (0.12.0), so
-        # both sides are cut to major.minor. Comparing the tag as written read
-        # 0.12.0 against 0.12 as behind, every day, and each alarm made fleet
-        # triage record a refresh that changed nothing (2026-10-13).
+        # A FULL VERSION IS COMPARED AS ONE. From 2026-10-13 this step cut
+        # both sides to major.minor, to stop it reading a full tag (0.12.0)
+        # against a minor (0.12) as behind. It then read the full tag as its
+        # line: 0.12.1 to 0.12.5 were published and it said "matches the
+        # latest release line" over each, and once 0.13.0 was out the patches
+        # of 0.12 were never named at all (2026-11-08). A minor tag (0.11)
+        # still compares as a line, because its digest moves with each patch
+        # and the digest step above reads that.
         run: |
           pin="$(grep -m1 -oE '\$\{WEBUI_IMAGE_TAG:-.*' ollama-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z0-9_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
-          pinned_minor="$(printf '%s' "${ref##*:}" | cut -d. -f1,2)"
+          pinned="${ref##*:}"; pinned="${pinned#v}"
           latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/open-webui/open-webui/releases/latest | jq -r .tag_name)"
           latest="${latest#v}"
-          latest_minor="${latest%.*}"
           if [ -z "$latest" ] || [ "$latest" = "null" ]; then
             echo "::error::Could not determine the latest Open WebUI release from the GitHub API"
             exit 1
           fi
-          if [ "$pinned_minor" != "$latest_minor" ]; then
-            echo "::error::Open WebUI pin is behind: pinned minor ${pinned_minor}, latest release is ${latest}"
-            exit 1
-          fi
-          echo "Open WebUI pin ${pinned_minor} matches the latest release line (${latest})"
+          case "$pinned" in
+            *.*.*)
+              # Order, not inequality, for the reason the Ollama step gives.
+              if [ "$pinned" = "$latest" ]; then
+                echo "Open WebUI pin ${pinned} matches the latest release"
+              elif [ "$(printf '%s\n%s\n' "$pinned" "$latest" | sort -V | head -1)" = "$pinned" ]; then
+                echo "::error::Open WebUI pin is behind: pinned ${pinned}, latest release is ${latest}"
+                exit 1
+              else
+                echo "Open WebUI pin ${pinned} is ahead of the published ${latest}, which is what a maintenance release for an older branch looks like"
+              fi
+              ;;
+            *)
+              if [ "$pinned" != "${latest%.*}" ]; then
+                echo "::error::Open WebUI pin is behind: pinned minor ${pinned}, latest release is ${latest}"
+                exit 1
+              fi
+              echo "Open WebUI pin ${pinned} matches the latest release line (${latest})"
+              ;;
+          esac
 
       - name: Compare pinned Traefik minor against the latest release
         # Runs even when the digest comparison above failed, so one run

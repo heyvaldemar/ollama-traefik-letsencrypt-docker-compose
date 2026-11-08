@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Fixed
+
+- The freshness check compares Open WebUI's full version when the pin is one. Since 2026-10-13 it cut the pin (0.12.0) to its minor line, so 0.12.1 to 0.12.5 were published while it reported the pin current, and once 0.13 was out it named only 0.13. A minor tag still compares as a line, as its digest moves with every patch.
+- The commented examples in `.env.example` name the pinned versions (Ollama 0.40.15, Open WebUI 0.12.0) instead of 0.33.2 and 0.11.
 
 ## [2.0.15] - 2026-11-06
 
