@@ -8,7 +8,7 @@
 x-images:
   traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:f4bb143d1135a579b630ed491e17ec50f6f7c9c6a30585ff3d385471d2a86f5a}}
   ollama: &ollama-image ${OLLAMA_IMAGE_TAG:-ollama/ollama:${OLLAMA_IMAGE_VERSION:-0.40.15@sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761}}
-  webui: &webui-image ${WEBUI_IMAGE_TAG:-ghcr.io/open-webui/open-webui:${WEBUI_IMAGE_VERSION:-0.12.0@sha256:1565038903151ced924b5a3226f73f40f16963df4b910441f6391f10144afdaa}}
+  webui: &webui-image ${WEBUI_IMAGE_TAG:-ghcr.io/open-webui/open-webui:${WEBUI_IMAGE_VERSION:-0.12.5@sha256:03443b8de6b617da9d900edd09b4bf1cb0ddbfdcba6afb42c548336a0b821ded}}
 
 networks:
   traefik-network:

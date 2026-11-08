@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`ghcr.io/open-webui/open-webui:0.12.0` moved to `ghcr.io/open-webui/open-webui:0.12.5`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
+
 ### Fixed
 
 - The freshness check compares Open WebUI's full version when the pin is one. Since 2026-10-13 it cut the pin (0.12.0) to its minor line, so 0.12.1 to 0.12.5 were published while it reported the pin current, and once 0.13 was out it named only 0.13. A minor tag still compares as a line, as its digest moves with every patch.
