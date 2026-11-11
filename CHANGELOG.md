@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`ghcr.io/open-webui/open-webui:0.12.5` moved to `ghcr.io/open-webui/open-webui:0.13.3`.** The freshness check reported the lag. Before this landed, the deploy job's upgrade drill started v2.0.18 on 0.12.5, then brought the same volumes up on 0.13.3, and the stack passed its checks.
+
+### Before upgrading from Open WebUI 0.12
+
+- **Have a backup from today.** Upstream 0.13.0 and 0.13.1 change the database schema and recommend a backup before upgrading. The newest set is listed by `docker compose -p ollama exec backups ls -la /srv/open-webui/backups/`. To go back, check out v2.0.18 and restore that set with `./open-webui-restore-data.sh`.
+- **Preload files is off by default.** With native function calling, the default, attached files are no longer added to the conversation, and models read them with their file tools instead. A model without tool support, or without the Files built-in tool, no longer sees attached files until Preload files is turned on in that model's Capabilities.
+- **Retrieval defaults changed.** Unless you saved your own values, `RAG_TOP_K` and `RAG_TOP_K_RERANKER` go from 3 to 10 and `CHUNK_SIZE` from 1000 to 1024, so each query retrieves more text and prompts with knowledge get longer. The new chunk size applies to files processed from now on; existing knowledge keeps its chunks until it is reindexed. This template sets none of the three.
 
 ## [2.0.18] - 2026-11-11
 
