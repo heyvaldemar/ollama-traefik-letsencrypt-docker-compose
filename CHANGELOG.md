@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`ghcr.io/open-webui/open-webui:0.12.5` moved to `ghcr.io/open-webui/open-webui:0.13.3`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
 
 ## [2.0.18] - 2026-11-11
 
