@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [2.0.19] - 2026-11-12
+
 ### Changed
 
 - **`ghcr.io/open-webui/open-webui:0.12.5` moved to `ghcr.io/open-webui/open-webui:0.13.3`.** The freshness check reported the lag. Before this landed, the deploy job's upgrade drill started v2.0.18 on 0.12.5, then brought the same volumes up on 0.13.3, and the stack passed its checks.
@@ -457,7 +461,8 @@ v1.2.0.
 
 - Quoting in `entrypoint.sh` model-pull loop.
 
-[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.18...HEAD
+[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.19...HEAD
+[2.0.19]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.18...v2.0.19
 [2.0.18]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.17...v2.0.18
 [2.0.17]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.16...v2.0.17
 [2.0.16]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.15...v2.0.16
