@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [2.0.20] - 2026-11-14
+
 ### Security
 
 - **`traefik:3.7` was rebuilt upstream**; the pin moved from `sha256:180aa0fae8ca…` to `sha256:b7b1b31e6440…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
@@ -463,7 +467,8 @@ v1.2.0.
 
 - Quoting in `entrypoint.sh` model-pull loop.
 
-[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.19...HEAD
+[Unreleased]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.20...HEAD
+[2.0.20]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.19...v2.0.20
 [2.0.19]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.18...v2.0.19
 [2.0.18]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.17...v2.0.18
 [2.0.17]: https://github.com/heyvaldemar/ollama-traefik-letsencrypt-docker-compose/compare/v2.0.16...v2.0.17
